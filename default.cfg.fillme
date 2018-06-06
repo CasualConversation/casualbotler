@@ -24,7 +24,7 @@ time_format = %Y-%m-%d %T
 
 [chanlogs]
 by_day = False
-dir = ~/casualbotler/logs/chanlogs
+dir = logs/chanlogs
 
 [logtools]
 google_api_key_password = 
@@ -37,7 +37,7 @@ relevant_range = a2:k
 [banlogger]
 admin_channels = 
 loggable_channels = 
-log_dir_path = ~/casualbotler/logs/chanlogs
+log_dir_path = logs/chanlogs
 base_form_url = 
 
 [reme]
