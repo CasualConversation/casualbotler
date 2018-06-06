@@ -1,0 +1,48 @@
+[core]
+nick = CasualBotler
+name = bleepbloop
+auth_method = nickserv
+auth_password = 
+host = irc.snoonet.org
+use_ssl = true
+port = 6697
+owner = znuxor
+admins = 
+channels = #casualconversation,#talk,#casualappeals,#casualnsfw
+enable = banlogger,reload,chanlogs,admin,reme,logtools
+prefix = ,
+reply_errors = false
+log_raw = false
+
+[admin]
+hold_ground = true
+auto_accept_invite = false
+
+[clock]
+tz = UTC
+time_format = %Y-%m-%d %T
+
+[chanlogs]
+by_day = False
+dir = ~/casualbotler/logs/chanlogs
+
+[logtools]
+google_api_key_password = 
+admin_channels = 
+acceptable_fuzz_ratio = 75
+spreadsheet_id = 
+relevant_sheets = Operator Actions,Pre 2018 Data
+relevant_range = a2:k
+
+[banlogger]
+admin_channels = 
+loggable_channels = 
+log_dir_path = ~/casualbotler/logs/chanlogs
+base_form_url = 
+
+[reme]
+allowed_channels = 
+days_before_forgotten = 14
+minimum_time_seconds = 7200
+minimum_line_number = 30
+sass_list = fat chance., pls, no >:(, I'm not sure about that., How about no?, I'd like to help you, but I forgot how.
