@@ -103,5 +103,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-# sensitive files
+# sensitive or data files
 /default.cfg
+/default.db
+*.pickle
+*.pid
