@@ -110,7 +110,7 @@ def _format_template(tpl, bot, trigger, **kwargs):
     dt_obj = get_datetime(bot)
 
     formatted = tpl.format(
-        trigger=trigger, dt=dt_obj.isoformat(),
+        trigger=trigger, datetime=dt_obj.isoformat(),
         date=dt_obj.date().isoformat(), time=dt_obj.time().isoformat(),
         **kwargs
     ) + "\n"
