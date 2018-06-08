@@ -14,7 +14,6 @@ import os
 import os.path
 import re
 import threading
-import sys
 from datetime import datetime
 from collections import defaultdict
 try:
@@ -24,7 +23,7 @@ except ImportError:
     pytz = None
 import sopel.module
 import sopel.tools
-from sopel.config.types import StaticSection, ValidatedAttribute, FilenameAttribute, NO_DEFAULT
+from sopel.config.types import StaticSection, ValidatedAttribute, FilenameAttribute
 
 MESSAGE_TPL = "{datetime}     {trigger.nick} ({trigger.hostmask}) {message}"
 ACTION_TPL =  "{datetime}     {trigger.nick} ({trigger.hostmask}) * {message}"
@@ -49,8 +48,6 @@ class ChanlogsSection(StaticSection):
     """Microsecond precision"""
     localtime = ValidatedAttribute('localtime', parse=bool, default=False)
     """Attempt to use preferred timezone instead of UTC"""
-    ## TODO: Allow configuration of templates, perhaps the user would like to use
-    ##       parsers that support only specific formats.
     message_template = ValidatedAttribute('message_template', default=None)
     action_template = ValidatedAttribute('action_template', default=None)
     mode_template = ValidatedAttribute('mode_template', default=None)
@@ -62,12 +59,13 @@ class ChanlogsSection(StaticSection):
 
 
 def configure(config):
+    '''Invoked when in configuration mode.'''
     config.define_section('chanlogs', ChanlogsSection, validate=False)
     config.chanlogs.configure_setting(
         'dir',
         'Path to channel log storage directory',
     )
-    
+
 
 def get_datetime(bot):
     """
@@ -111,12 +109,11 @@ def _format_template(tpl, bot, trigger, **kwargs):
         **kwargs
     ) + "\n"
 
-    if sys.version_info.major < 3 and isinstance(formatted, unicode):
-        formatted = formatted.encode('utf-8')
     return formatted
 
 
 def setup(bot):
+    '''Invoked upon module loading.'''
     bot.config.define_section('chanlogs', ChanlogsSection)
 
     # locks for log files
@@ -126,7 +123,6 @@ def setup(bot):
     # to keep track of joins parts and quits of users to log QUIT events correctly
     if not bot.memory.contains('channels_of_user'):
         bot.memory['channels_of_user'] = defaultdict(list)
-
 
 
 @sopel.module.rule('.*')
@@ -140,16 +136,14 @@ def log_message(bot, message):
     # determine which template we want, message or action
     if message.tags.get('intent') == 'ACTION':
         tpl = bot.config.chanlogs.action_template or ACTION_TPL
-        # strip off start and end
-        #message = message[8:-1]
     else:
         tpl = bot.config.chanlogs.message_template or MESSAGE_TPL
 
     logline = _format_template(tpl, bot, message, message=message)
     fpath = get_fpath(bot, message)
     with bot.memory['chanlog_locks'][fpath]:
-        with open(fpath, "ab") as f:
-            f.write(logline.encode('utf8'))
+        with open(fpath, "ab") as file_handle:
+            file_handle.write(logline.encode('utf8'))
 
     # user channels management
     if message.sender not in bot.memory['channels_of_user'][message.nick]:
@@ -160,6 +154,7 @@ def log_message(bot, message):
 @sopel.module.event("MODE")
 @sopel.module.unblockable
 def log_mode(bot, trigger):
+    '''Logs a mode change string.'''
     if len(trigger.args) == 3:
         tpl = bot.config.chanlogs.mode_template or MODE_TPL_3
     elif len(trigger.args) == 2:
@@ -170,20 +165,21 @@ def log_mode(bot, trigger):
     logline = _format_template(tpl, bot, trigger)
     fpath = get_fpath(bot, trigger, channel=trigger.sender)
     with bot.memory['chanlog_locks'][fpath]:
-        with open(fpath, "ab") as f:
-            f.write(logline.encode('utf8'))
+        with open(fpath, "ab") as file_handle:
+            file_handle.write(logline.encode('utf8'))
 
 
 @sopel.module.rule('.*')
 @sopel.module.event("KICK")
 @sopel.module.unblockable
 def log_kick(bot, trigger):
+    '''logs a kick line.'''
     tpl = bot.config.chanlogs.mode_template or KICK_TPL
     logline = _format_template(tpl, bot, trigger)
     fpath = get_fpath(bot, trigger, channel=trigger.sender)
     with bot.memory['chanlog_locks'][fpath]:
-        with open(fpath, "ab") as f:
-            f.write(logline.encode('utf8'))
+        with open(fpath, "ab") as file_handle:
+            file_handle.write(logline.encode('utf8'))
     # user channels management
     if trigger.sender in bot.memory['channels_of_user'][trigger.nick]:
         bot.memory['channels_of_user'][trigger.nick].remove(trigger.sender)
@@ -191,16 +187,18 @@ def log_kick(bot, trigger):
 
 users = defaultdict(list)
 
+
 @sopel.module.rule('.*')
 @sopel.module.event("JOIN")
 @sopel.module.unblockable
 def log_join(bot, trigger):
+    '''logs a join line.'''
     tpl = bot.config.chanlogs.join_template or JOIN_TPL
     logline = _format_template(tpl, bot, trigger)
     fpath = get_fpath(bot, trigger, channel=trigger.sender)
     with bot.memory['chanlog_locks'][fpath]:
-        with open(fpath, "ab") as f:
-            f.write(logline.encode('utf8'))
+        with open(fpath, "ab") as file_handle:
+            file_handle.write(logline.encode('utf8'))
     # user channels management
     bot.memory['channels_of_user'][trigger.nick].append(trigger.sender)
 
@@ -209,12 +207,13 @@ def log_join(bot, trigger):
 @sopel.module.event("PART")
 @sopel.module.unblockable
 def log_part(bot, trigger):
+    '''logs a part line.'''
     tpl = bot.config.chanlogs.part_template or PART_TPL
     logline = _format_template(tpl, bot, trigger=trigger)
     fpath = get_fpath(bot, trigger, channel=trigger.sender)
     with bot.memory['chanlog_locks'][fpath]:
-        with open(fpath, "ab") as f:
-            f.write(logline.encode('utf8'))
+        with open(fpath, "ab") as file_handle:
+            file_handle.write(logline.encode('utf8'))
     # user channels management
     if trigger.sender in bot.memory['channels_of_user'][trigger.nick]:
         bot.memory['channels_of_user'][trigger.nick].remove(trigger.sender)
@@ -226,26 +225,27 @@ def log_part(bot, trigger):
 @sopel.module.thread(False)
 @sopel.module.priority('high')
 def log_quit(bot, trigger):
+    '''logs a quit line'''
     tpl = bot.config.chanlogs.quit_template or QUIT_TPL
     logline = _format_template(tpl, bot, trigger)
     # make a copy of bot.privileges that we can safely iterate over
     privcopy = list(bot.privileges.items())
     # write logline to *all* channels that the user was present in
-    for channel, privileges in privcopy:
-        #if trigger.nick in privileges:
+    for channel, _ in privcopy:
         if channel in bot.memory['channels_of_user'][trigger.nick]:
             fpath = get_fpath(bot, trigger, channel)
             with bot.memory['chanlog_locks'][fpath]:
-                with open(fpath, "ab") as f:
-                    f.write(logline.encode('utf8'))
+                with open(fpath, "ab") as file_handle:
+                    file_handle.write(logline.encode('utf8'))
     # user channels management
-    del(bot.memory['channels_of_user'][trigger.nick])
+    del bot.memory['channels_of_user'][trigger.nick]
 
 
 @sopel.module.rule('.*')
 @sopel.module.event("NICK")
 @sopel.module.unblockable
 def log_nick_change(bot, trigger):
+    '''logs a nick change line.'''
     tpl = bot.config.chanlogs.nick_template or NICK_TPL
     logline = _format_template(tpl, bot, trigger)
     old_nick = trigger.nick
@@ -257,8 +257,8 @@ def log_nick_change(bot, trigger):
         if old_nick in privileges or new_nick in privileges:
             fpath = get_fpath(bot, trigger, channel)
             with bot.memory['chanlog_locks'][fpath]:
-                with open(fpath, "ab") as f:
-                    f.write(logline.encode('utf8'))
+                with open(fpath, "ab") as file_handle:
+                    file_handle.write(logline.encode('utf8'))
     # user channels management
     bot.memory['channels_of_user'][new_nick].extend(bot.memory['channels_of_user'][old_nick])
-    del(bot.memory['channels_of_user'][old_nick])
+    del bot.memory['channels_of_user'][old_nick]
