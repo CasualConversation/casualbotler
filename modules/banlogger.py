@@ -9,7 +9,7 @@ import subprocess
 import urllib
 import requests
 from sopel import module
-from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute,FilenameAttribute
+from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute, FilenameAttribute
 from pyshorteners import Shortener
 
 
@@ -36,15 +36,17 @@ OPT_DURATION_GROUP = r'(\+\d{1,3}[smhdy])? ?'
 
 MUTE_REGEX = re.compile(ISO8601+r' --  Mode #?\w+ \(\+b m:(.*)\) by ('+VALID_NICK+r') \((.*)\)')
 BAN_REGEX = re.compile(ISO8601+r' --  Mode #?\w+ \(\+b (.*)\) by ('+VALID_NICK+r') \((.*)\)')
-KICK_REGEX = re.compile(ISO8601+r' <-- (' + VALID_NICK+r') \((.*)\) has kicked ('+VALID_NICK+r') \(?(.*)\)?')
-REMOVED_REGEX = re.compile(ISO8601 + r' <-- (' + VALID_NICK + r') \((.*)\) has left \(?Removed by (' + VALID_NICK + ').*\)?')
-MSG_REGEX = re.compile(ISO8601 + r'     (' + VALID_NICK + r') \((.*)\) (.*)')
-SWITCH_REGEX = re.compile(ISO8601 + r' --  (' + VALID_NICK + r') \((.*)\) is now known as (' + VALID_NICK + ')')
-JOIN_REGEX =   re.compile(ISO8601 + r' --> ('  + VALID_NICK + r') \((.*)\) has joined .*')
+KICK_REGEX = re.compile(ISO8601+r' <-- ('+VALID_NICK+r') \((.*)\) has kicked ('+VALID_NICK+r') \(?(.*)\)?')
+REMOVED_REGEX = re.compile(ISO8601+r' <-- ('+VALID_NICK+r') \((.*)\) has left \(?Removed by ('+VALID_NICK+r').*\)?')
+MSG_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \((.*)\) (.*)')
+SWITCH_REGEX = re.compile(ISO8601+r' --  ('+VALID_NICK+r') \((.*)\) is now known as ('+VALID_NICK+')')
+JOIN_REGEX = re.compile(ISO8601+r' --> ('+VALID_NICK+r') \((.*)\) has joined .*')
 
-KICK_MACRO_REGEX = re.compile(ISO8601 + r'     (' + VALID_NICK + r') \(.*\) !ki?c?k? (' + VALID_NICK + ') ?(.*)')
-MUTE_MACRO_REGEX = re.compile(ISO8601 + r'     (' + VALID_NICK + r') \(.*\) !mu?t?e? ' + OPT_DURATION_GROUP + '(' + VALID_NICK + ') ?(.*)')
-BAN_MACRO_REGEX = re.compile(ISO8601 + r'     (' + VALID_NICK + r') \(.*\) !k?i?c?k?ba?n? ' + OPT_DURATION_GROUP + '(' + VALID_NICK + ') ?(.*)')
+KICK_MACRO_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \(.*\) !ki?c?k? ('+VALID_NICK+r') ?(.*)')
+MUTE_MACRO_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \(.*\) !mu?t?e? ' +
+                              OPT_DURATION_GROUP+r'('+VALID_NICK+r') ?(.*)')
+BAN_MACRO_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \(.*\) !k?i?c?k?ba?n? ' +
+                             OPT_DURATION_GROUP+r'('+VALID_NICK+r') ?(.*)')
 
 
 def setup(bot):
@@ -265,13 +267,20 @@ def get_action_line_index(log_lines, action_number_to_skip):
         removed_by_op_match = REMOVED_REGEX.match(line_str)
         ban_match = BAN_REGEX.match(line_str)
         isAnAction = mute_match or ban_match or simple_kick_match or removed_by_op_match
-        if simple_kick_match and simple_kick_match.group(1) == 'gonzobot':  # ugh duckhunt
+        if (simple_kick_match and
+                simple_kick_match.group(1) == 'gonzobot'):  # ugh duckhunt
             continue
-        if simple_kick_match and simple_kick_match.group(1) == 'StormBot' and VPN_MESSAGE_PART in simple_kick_match.group(3):  # vpn timed ban part 1
+        if (simple_kick_match and
+                simple_kick_match.group(1) == 'StormBot' and
+                VPN_MESSAGE_PART in simple_kick_match.group(3)):  # vpn timed ban part 1
             continue
-        if ban_match and ban_match.group(2) == 'StormBot' and 'U:' in ban_match.group(1):  # vpn timed ban part 2
+        if (ban_match and
+                ban_match.group(2) == 'StormBot' and
+                'U:' in ban_match.group(1)):  # vpn timed ban part 2
             continue
-        if ban_match and ban_match.group(2) == 'StormBot' and 'fix-your-connection' in ban_match.group(1):  # connection fix timed ban
+        if (ban_match and
+                ban_match.group(2) == 'StormBot' and
+                'fix-your-connection' in ban_match.group(1)):  # connection fix timed ban
             continue
         if isAnAction and action_number_to_skip <= 0:
             return line_index
@@ -370,18 +379,23 @@ def extract_macro_info(log_lines, relevant_information):
         kick_match = KICK_MACRO_REGEX.match(line_str)
         mute_match = MUTE_MACRO_REGEX.match(line_str)
         ban_match = BAN_MACRO_REGEX.match(line_str)
-        if kick_match and kick_match.group(2) == relevant_information['nick']:
+        if (kick_match and
+                kick_match.group(2) == relevant_information['nick']):
             relevant_information['operator'] = kick_match.group(1)
             relevant_information['reason'] = kick_match.group(3)
             return
-        elif mute_match and mute_match.group(3) == relevant_information['nick'] and relevant_information['result'] == 'Permanent Mute':
+        elif (mute_match and
+                mute_match.group(3) == relevant_information['nick'] and
+                relevant_information['result'] == 'Permanent Mute'):
             relevant_information['operator'] = mute_match.group(1)
             if mute_match.group(2):
                 relevant_information['length'] = format_time(mute_match.group(2))
                 relevant_information['result'] = 'Timed Mute'
             relevant_information['reason'] = mute_match.group(4)
             return
-        elif ban_match and ban_match.group(3) == relevant_information['nick'] and relevant_information['result'] == 'Permanent Ban':
+        elif (ban_match and
+                ban_match.group(3) == relevant_information['nick'] and
+                relevant_information['result'] == 'Permanent Ban'):
             relevant_information['operator'] = ban_match.group(1)
             if ban_match.group(2):
                 relevant_information['length'] = format_time(ban_match.group(2))
