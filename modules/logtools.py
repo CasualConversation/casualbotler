@@ -46,6 +46,23 @@ def setup(bot):
 ACCEPTABLE_RATIO = 75
 
 
+def search_for_indexes(bot, args):
+    '''Searches the data in the sheets, returns the indexes.'''
+    found_indexes_1 = []
+    found_indexes_2 = []
+
+    for index, line in enumerate(bot.memory['sheet_content_1']):
+        if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
+                                                        line[1].lower()) >= ACCEPTABLE_RATIO):
+            found_indexes_1.append(index)
+
+    for index, line in enumerate(bot.memory['sheet_content_2']):
+        if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
+                                                        line[1].lower()) >= ACCEPTABLE_RATIO):
+            found_indexes_2.append(index)
+    return found_indexes_1, found_indexes_2
+
+
 @module.commands('search')
 def search(bot, trigger):
     '''Searches for a nick (fuzzy) for a part of a netmask in the spreadsheets.'''
@@ -70,18 +87,7 @@ def search(bot, trigger):
     if 'sheet_content_1' not in bot.memory:
         refresh_spreadsheet_content(bot)
 
-    found_indexes_1 = []
-    found_indexes_2 = []
-
-    for index, line in enumerate(bot.memory['sheet_content_1']):
-        if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
-                                                        line[1].lower()) >= ACCEPTABLE_RATIO):
-            found_indexes_1.append(index)
-
-    for index, line in enumerate(bot.memory['sheet_content_2']):
-        if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
-                                                        line[1].lower()) >= ACCEPTABLE_RATIO):
-            found_indexes_2.append(index)
+    found_indexes_1, found_indexes_2 = search_for_indexes(bot, args)
 
     sheet_1_instances = []
     sheet_2_instances = []
