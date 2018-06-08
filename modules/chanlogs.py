@@ -25,19 +25,25 @@ import sopel.module
 import sopel.tools
 from sopel.config.types import StaticSection, ValidatedAttribute, FilenameAttribute
 
+
 MESSAGE_TPL = "{datetime}     {trigger.nick} ({trigger.hostmask}) {message}"
-ACTION_TPL =  "{datetime}     {trigger.nick} ({trigger.hostmask}) * {message}"
-MODE_TPL_2 =  "{datetime} --  Mode {trigger.sender} ({trigger.args[1]})  by {trigger.nick} ({trigger.hostmask})"
-MODE_TPL_3 =  "{datetime} --  Mode {trigger.sender} ({trigger.args[1]} {trigger.args[2]}) by {trigger.nick} ({trigger.hostmask})"
-KICK_TPL =    "{datetime} <-- {trigger.nick} ({trigger.hostmask}) has kicked {trigger.args[1]} ({trigger.args[2]})"
-NICK_TPL =    "{datetime} --  {trigger.nick} ({trigger.hostmask}) is now known as {trigger.sender}"
-JOIN_TPL =    "{datetime} --> {trigger.nick} ({trigger.hostmask}) has joined {trigger}"
-PART_TPL =    "{datetime} <-- {trigger.nick} ({trigger.hostmask}) has left ({trigger})"
-QUIT_TPL =    "{datetime} *** {trigger.nick} ({trigger.hostmask}) has quit IRC ({trigger.args[0]})"
+ACTION_TPL = "{datetime}     {trigger.nick} ({trigger.hostmask}) * {message}"
+MODE_TPL_2 = "{datetime} --  Mode {trigger.sender} ({trigger.args[1]})  " \
+             "by {trigger.nick} ({trigger.hostmask})"
+MODE_TPL_3 = "{datetime} --  Mode {trigger.sender} ({trigger.args[1]} {trigger.args[2]}) " \
+             "by {trigger.nick} ({trigger.hostmask})"
+KICK_TPL = "{datetime} <-- {trigger.nick} ({trigger.hostmask}) " \
+           "has kicked {trigger.args[1]} ({trigger.args[2]})"
+NICK_TPL = "{datetime} --  {trigger.nick} ({trigger.hostmask}) is now known as {trigger.sender}"
+JOIN_TPL = "{datetime} --> {trigger.nick} ({trigger.hostmask}) has joined {trigger}"
+PART_TPL = "{datetime} <-- {trigger.nick} ({trigger.hostmask}) has left ({trigger})"
+QUIT_TPL = "{datetime} *** {trigger.nick} ({trigger.hostmask}) has quit IRC ({trigger.args[0]})"
 # According to Wikipedia
 BAD_CHARS = re.compile(r'[\/?%*:|"<>. ]')
 
+
 class ChanlogsSection(StaticSection):
+    '''A data class containing all the module parameter definitions.'''
     dir = FilenameAttribute('dir', directory=True, default='~/chanlogs')
     """Path to channel log storage directory"""
     by_day = ValidatedAttribute('by_day', parse=bool, default=True)
@@ -71,14 +77,14 @@ def get_datetime(bot):
     """
     Returns a datetime object of the current time.
     """
-    dt = datetime.utcnow()
+    dt_obj = datetime.utcnow()
     if pytz:
-        dt = dt.replace(tzinfo=timezone('UTC'))
+        dt_obj = dt_obj.replace(tzinfo=timezone('UTC'))
         if bot.config.chanlogs.localtime:
-            dt = dt.astimezone(timezone(bot.config.clock.tz))
+            dt_obj = dt_obj.astimezone(timezone(bot.config.clock.tz))
     if not bot.config.chanlogs.microseconds:
-        dt = dt.replace(microsecond=0)
-    return dt
+        dt_obj = dt_obj.replace(microsecond=0)
+    return dt_obj
 
 
 def get_fpath(bot, trigger, channel=None):
@@ -92,20 +98,20 @@ def get_fpath(bot, trigger, channel=None):
     channel = BAD_CHARS.sub('__', channel)
     channel = sopel.tools.Identifier(channel).lower()
 
-    dt = get_datetime(bot)
+    dt_obj = get_datetime(bot)
     if bot.config.chanlogs.by_day:
-        fname = "{channel}-{date}.log".format(channel=channel, date=dt.date().isoformat())
+        fname = "{channel}-{date}.log".format(channel=channel, date=dt_obj.date().isoformat())
     else:
         fname = "{channel}.log".format(channel=channel)
     return os.path.join(basedir, fname)
 
 
 def _format_template(tpl, bot, trigger, **kwargs):
-    dt = get_datetime(bot)
+    dt_obj = get_datetime(bot)
 
     formatted = tpl.format(
-        trigger=trigger, datetime=dt.isoformat(),
-        date=dt.date().isoformat(), time=dt.time().isoformat(),
+        trigger=trigger, dt=dt_obj.isoformat(),
+        date=dt_obj.date().isoformat(), time=dt_obj.time().isoformat(),
         **kwargs
     ) + "\n"
 
@@ -183,9 +189,6 @@ def log_kick(bot, trigger):
     # user channels management
     if trigger.sender in bot.memory['channels_of_user'][trigger.nick]:
         bot.memory['channels_of_user'][trigger.nick].remove(trigger.sender)
-
-
-users = defaultdict(list)
 
 
 @sopel.module.rule('.*')
