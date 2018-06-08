@@ -21,6 +21,7 @@ class BanLoggerSection(StaticSection):
 
 
 def configure(config):
+    '''Invoked when in configuration building mode.'''
     config.define_section('banlogger', BanLoggerSection, validate=True)
 
 
@@ -29,34 +30,46 @@ parser = None
 shortener = None
 
 # Format them with the appropriate information!
-validNick = r'[a-zA-Z0-9_\-\\\[\]\{\}\^\`\|]+'
-iso8601 = r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}'
-optionalDurationGroup = r'(\+\d{1,3}[smhdy])? ?'
+VALID_NICK = r'[a-zA-Z0-9_\-\\\[\]\{\}\^\`\|]+'
+ISO8601 = r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}'
+OPT_DURATION_GROUP = r'(\+\d{1,3}[smhdy])? ?'
 
-muteRegex =  re.compile(iso8601 + r' --  Mode #?\w+ \(\+b m:(.*)\) by (' + validNick + ') \((.*)\)')
-banRegex =  re.compile(iso8601 + r' --  Mode #?\w+ \(\+b (.*)\) by (' + validNick + ') \((.*)\)')
-simpleKickRegex =  re.compile(iso8601 + r' <-- (' + validNick + r') \((.*)\) has kicked (' + validNick + r') \(?(.*)\)?')
-removedByOPRegex = re.compile(iso8601 + r' <-- (' + validNick + r') \((.*)\) has left \(?Removed by (' + validNick + ').*\)?')
-messageRegex = re.compile(iso8601 + r'     (' + validNick + r') \((.*)\) (.*)')
-switchRegex = re.compile(iso8601 + r' --  (' + validNick + r') \((.*)\) is now known as (' + validNick + ')')
-joinRegex =   re.compile(iso8601 + r' --> ('  + validNick + r') \((.*)\) has joined .*')
+MUTE_REGEX = re.compile(ISO8601+r' --  Mode #?\w+ \(\+b m:(.*)\) by ('+VALID_NICK+r') \((.*)\)')
+BAN_REGEX = re.compile(ISO8601+r' --  Mode #?\w+ \(\+b (.*)\) by ('+VALID_NICK+r') \((.*)\)')
+KICK_REGEX = re.compile(ISO8601+r' <-- (' + VALID_NICK+r') \((.*)\) has kicked ('+VALID_NICK+r') \(?(.*)\)?')
+REMOVED_REGEX = re.compile(ISO8601 + r' <-- (' + VALID_NICK + r') \((.*)\) has left \(?Removed by (' + VALID_NICK + ').*\)?')
+MSG_REGEX = re.compile(ISO8601 + r'     (' + VALID_NICK + r') \((.*)\) (.*)')
+SWITCH_REGEX = re.compile(ISO8601 + r' --  (' + VALID_NICK + r') \((.*)\) is now known as (' + VALID_NICK + ')')
+JOIN_REGEX =   re.compile(ISO8601 + r' --> ('  + VALID_NICK + r') \((.*)\) has joined .*')
 
-kickMacroRegex = re.compile(iso8601 + r'     (' + validNick + r') \(.*\) !ki?c?k? (' + validNick + ') ?(.*)')
-muteMacroRegex = re.compile(iso8601 + r'     (' + validNick + r') \(.*\) !mu?t?e? ' + optionalDurationGroup + '(' + validNick + ') ?(.*)')
-banMacroRegex = re.compile(iso8601 + r'     (' + validNick + r') \(.*\) !k?i?c?k?ba?n? ' + optionalDurationGroup + '(' + validNick + ') ?(.*)')
+KICK_MACRO_REGEX = re.compile(ISO8601 + r'     (' + VALID_NICK + r') \(.*\) !ki?c?k? (' + VALID_NICK + ') ?(.*)')
+MUTE_MACRO_REGEX = re.compile(ISO8601 + r'     (' + VALID_NICK + r') \(.*\) !mu?t?e? ' + OPT_DURATION_GROUP + '(' + VALID_NICK + ') ?(.*)')
+BAN_MACRO_REGEX = re.compile(ISO8601 + r'     (' + VALID_NICK + r') \(.*\) !k?i?c?k?ba?n? ' + OPT_DURATION_GROUP + '(' + VALID_NICK + ') ?(.*)')
+
 
 def setup(bot):
+    '''Invoked when module is loaded.'''
     bot.config.define_section('banlogger', BanLoggerSection, validate=True)
     argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     global parser
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('mode', type=str, choices=['recent', 'auto'], default='auto', help='the desired logging mode')
-    parser.add_argument('--linenumber', '-l', type=int, choices=range(1, 4001), default=100, metavar="[1-4000]", help='the number of lines to log in recent mode')
-    parser.add_argument('--maxautolines', '-m', type=int, choices=range(1, 4001), default=4000, metavar="[1-4000]", help='the maximum number of lines to search in auto mode')
-    parser.add_argument('--maxlogautolines', '-b', type=int, choices=range(1, 4001), default=400, metavar="[1-4000]", help='the maximum number of lines for the log in auto mode')
-    parser.add_argument('--followinglines', '-f', type=int, choices=range(0, 101), default=2, metavar="[0-100]", help='the desired number of lines following the action in auto mode')
-    parser.add_argument('--skip', '-s', type=int, choices=range(11), default=0, metavar="[0-10]", help='the number of actions to skip in auto mode')
-    parser.add_argument('--chan', '-c', type=str, choices=bot.config.banlogger.loggable_channels, default='#casualconversation', help='the channel to log')
+    parser.add_argument('mode', type=str, choices=['recent', 'auto'], default='auto',
+                        help='the desired logging mode')
+    parser.add_argument('--linenumber', '-l', type=int, choices=range(1, 4001), default=100,
+                        metavar="[1-4000]", help='the number of lines to log in recent mode')
+    parser.add_argument('--maxautolines', '-m', type=int, choices=range(1, 4001), default=4000,
+                        metavar="[1-4000]",
+                        help='the maximum number of lines to search in auto mode')
+    parser.add_argument('--maxlogautolines', '-b', type=int, choices=range(1, 4001), default=400,
+                        metavar="[1-4000]",
+                        help='the maximum number of lines for the log in auto mode')
+    parser.add_argument('--followinglines', '-f', type=int, choices=range(0, 101), default=2,
+                        metavar="[0-100]",
+                        help='the desired number of lines following the action in auto mode')
+    parser.add_argument('--skip', '-s', type=int, choices=range(11), default=0, metavar="[0-10]",
+                        help='the number of actions to skip in auto mode')
+    parser.add_argument('--chan', '-c', type=str, choices=bot.config.banlogger.loggable_channels,
+                        default='#casualconversation', help='the channel to log')
 
     global shortener
     shortener = Shortener('Tinyurl')
@@ -70,7 +83,7 @@ CHANNEL_FOR_LOG = {'#casualconversation': '#Casualconversation',
                    '#casualnsfw': '#CasualNSFW',
                    '#casualappeals': 'All'}
 
-APPROPRIATE_BACKTRACK_NUMBER = 8  # The number of lines to analyze before an action by casual_ban_bot
+APPROPRIATE_BACKTRACK_NUMBER = 8  # The number of lines to analyze before an action
 
 
 @module.commands('log')
@@ -78,8 +91,8 @@ def log(bot, trigger):
 
     extra_info = ''
 
-    isAdminChannel = (trigger.sender in bot.config.banlogger.admin_channels)
-    if not isAdminChannel:
+    is_admin_channel = (trigger.sender in bot.config.banlogger.admin_channels)
+    if not is_admin_channel:
         return
 
     arguments = trigger.groups()[1]
@@ -88,7 +101,7 @@ def log(bot, trigger):
         return
     try:
         args = parser.parse_args(shlex.split(arguments))
-    except SystemExit as e:
+    except SystemExit:
         if '-h' in arguments or '--help' in arguments or 'help' in arguments:
             helplog(bot, trigger)
         else:
@@ -137,9 +150,8 @@ def log(bot, trigger):
             start_index = 0
 
         if end_index - start_index > args.maxlogautolines:
-            extra_info = extra_info + 'only using {} lines, consider using -b if more is needed '.format(args.maxlogautolines)
+            extra_info += 'only using {} lines, use -b if needed '.format(args.maxlogautolines)
             start_index = end_index - args.maxlogautolines
-
 
     prettified_lines = prettify_lines(log_lines[start_index:end_index])
     relevant_content = '\n'.join(prettified_lines)
@@ -157,23 +169,28 @@ ENTRY_INDEXES = {'nick': '1999262323', 'result': '1898835520', 'length': '111803
                  'reason': '956001950', 'host': '400563484', 'log_url': '958498595',
                  'additional_information': 'entry.1480742756'}
 
+
 @module.commands('form')
 def serve_filled_form(bot, trigger):
-    isAdminChannel = (trigger.sender in bot.config.banlogger.admin_channels)
-    if not isAdminChannel:
+    '''Serves a filled form from the memorized information of the last log.'''
+    is_admin_channel = (trigger.sender in bot.config.banlogger.admin_channels)
+    if not is_admin_channel:
         return
 
     url = bot.config.banlogger.base_form_url
     for info_type, info_value in bot.memory['last_log_information'].items():
         if info_value is not None:
-            url += '&entry.{}={}'.format(ENTRY_INDEXES[info_type], urllib.parse.quote_plus(info_value))
+            url += '&entry.{}={}'.format(ENTRY_INDEXES[info_type],
+                                         urllib.parse.quote_plus(info_value))
 
     bot.reply('\U0001F449\U0001F60E\U0001F449 ' + shortener.short(url))
 
+
 @module.commands('helplog')
 def helplog(bot, trigger):
-    isAdminChannel = (trigger.sender in bot.config.banlogger.admin_channels)
-    if not isAdminChannel:
+    '''Serves the help information for the command.'''
+    is_admin_channel = (trigger.sender in bot.config.banlogger.admin_channels)
+    if not is_admin_channel:
         return
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',log')
@@ -187,7 +204,7 @@ def prettify_lines(lines):
     lines_filtered_1 = []
     lines_filtered_2 = []
     for line in lines:
-        message_match = messageRegex.match(line)
+        message_match = MSG_REGEX.match(line)
         if message_match:
             host_str = '(' + message_match.group(2) + ') '
             nick_str = message_match.group(1)
@@ -220,7 +237,6 @@ def create_snoonet_paste(paste_content):
     # We create a post
     response = requests.post(post_url, data=data)
 
-    #return paste_url_prefix + url_unique_code
     return response.url
 
 
@@ -232,22 +248,22 @@ def read_log_file(bot, channel_name, lines_number):
     output = None
     try:
         output = subprocess.check_output(list(cmd))
-    except subprocess.CalledProcessError as e:
-        print(e.output)
 
     log_content = output.decode('utf8')
     return log_content
 
 
 VPN_MESSAGE_PART = 'You must register your nickname to use a VPN connection on this channel.'
+
+
 def get_action_line_index(log_lines, action_number_to_skip):
     '''Gets the index of the relevant action'''
     for line_index, line_str in reversed(list(enumerate(log_lines))):
-        mute_match = muteRegex.match(line_str)
-        ban_match = banRegex.match(line_str)
-        simple_kick_match = simpleKickRegex.match(line_str)
-        removed_by_op_match = removedByOPRegex.match(line_str)
-        ban_match = banRegex.match(line_str)
+        mute_match = MUTE_REGEX.match(line_str)
+        ban_match = BAN_REGEX.match(line_str)
+        simple_kick_match = KICK_REGEX.match(line_str)
+        removed_by_op_match = REMOVED_REGEX.match(line_str)
+        ban_match = BAN_REGEX.match(line_str)
         isAnAction = mute_match or ban_match or simple_kick_match or removed_by_op_match
         if simple_kick_match and simple_kick_match.group(1) == 'gonzobot':  # ugh duckhunt
             continue
@@ -266,10 +282,10 @@ def get_action_line_index(log_lines, action_number_to_skip):
 def get_action_relevant_information(line_str):
     '''Returns a dictionary of useful information from the action line'''
     relevant_information = dict()
-    mute_match = muteRegex.match(line_str)
-    ban_match = banRegex.match(line_str)
-    simple_kick_match = simpleKickRegex.match(line_str)
-    removed_by_op_match = removedByOPRegex.match(line_str)
+    mute_match = MUTE_REGEX.match(line_str)
+    ban_match = BAN_REGEX.match(line_str)
+    simple_kick_match = KICK_REGEX.match(line_str)
+    removed_by_op_match = REMOVED_REGEX.match(line_str)
 
     if mute_match:
         relevant_information['result'] = 'Permanent Mute'  # will be downgrater to timed during backtrack
@@ -310,35 +326,35 @@ def deduce_last_nickname_or_hostmask(log_lines, relevant_information):
         # If they speak, we have their hostmask and nick
         # If they switch their nick, we get their hostmask and nick that way too
         # If we get their join line, that gives us their nick and hostmask
-        a_message_match = messageRegex.match(line_str)
-        a_switch_match = switchRegex.match(line_str)
-        a_join_match = joinRegex.match(line_str)
+        a_message_match = MSG_REGEX.match(line_str)
+        a_switch_match = SWITCH_REGEX.match(line_str)
+        a_join_match = JOIN_REGEX.match(line_str)
         if missing_info == 'nick':
-            if  a_message_match and a_message_match.group(2).split('@')[1] == relevant_information[provided_info]:
+            if a_message_match and a_message_match.group(2).split('@')[1] == relevant_information[provided_info]:
                 relevant_information[missing_info] = a_message_match.group(1)
-                return
-            if  a_switch_match and a_switch_match.group(2).split('@')[1] == relevant_information[provided_info]:
+                break
+            if a_switch_match and a_switch_match.group(2).split('@')[1] == relevant_information[provided_info]:
                 relevant_information[missing_info] = a_switch_match.group(3)
-                return
-            if  a_join_match and a_join_match.group(2).split('@')[1] == relevant_information[provided_info]:
+                break
+            if a_join_match and a_join_match.group(2).split('@')[1] == relevant_information[provided_info]:
                 relevant_information[missing_info] = a_join_match.group(1)
-                return
+                break
         elif missing_info == 'host':
-            if  a_message_match and a_message_match.group(1) == relevant_information[provided_info]:
+            if a_message_match and a_message_match.group(1) == relevant_information[provided_info]:
                 relevant_information[missing_info] = a_message_match.group(2).split('@')[1]
-                return
-            if  a_switch_match and a_switch_match.group(3) == relevant_information[provided_info]:
+                break
+            if a_switch_match and a_switch_match.group(3) == relevant_information[provided_info]:
                 relevant_information[missing_info] = a_switch_match.group(2).split('@')[1]
-                return
-            if  a_join_match and a_join_match.group(1) == relevant_information[provided_info]:
+                break
+            if a_join_match and a_join_match.group(1) == relevant_information[provided_info]:
                 relevant_information[missing_info] = a_join_match.group(2).split('@')[1]
-                return
+                break
 
 
 def get_first_index(log_lines, relevant_information):
     '''Returns the first index (join) of the user, otherwise None is returned'''
     for line_index, line_str in reversed(list(enumerate(log_lines))):
-        join_match = joinRegex.match(line_str)
+        join_match = JOIN_REGEX.match(line_str)
         if join_match and join_match.group(2).split('@')[1] == relevant_information['host']:
             return line_index
 
@@ -346,14 +362,14 @@ def get_first_index(log_lines, relevant_information):
 
 
 def extract_macro_info(log_lines, relevant_information):
-    '''Searches for macro information, if available, for example !k etc, then extracts relevant info'''
+    '''Searches for macro information, if available, for example !k, then extracts relevant info'''
     if 'nick' not in relevant_information:
         return  # to detect the correct line
 
-    for line_index, line_str in reversed(list(enumerate(log_lines))):
-        kick_match = kickMacroRegex.match(line_str)
-        mute_match = muteMacroRegex.match(line_str)
-        ban_match = banMacroRegex.match(line_str)
+    for _, line_str in reversed(list(enumerate(log_lines))):
+        kick_match = KICK_MACRO_REGEX.match(line_str)
+        mute_match = MUTE_MACRO_REGEX.match(line_str)
+        ban_match = BAN_MACRO_REGEX.match(line_str)
         if kick_match and kick_match.group(2) == relevant_information['nick']:
             relevant_information['operator'] = kick_match.group(1)
             relevant_information['reason'] = kick_match.group(3)
@@ -372,6 +388,7 @@ def extract_macro_info(log_lines, relevant_information):
                 relevant_information['result'] = 'Timed Ban'
             relevant_information['reason'] = ban_match.group(4)
             return
+
 
 def format_time(unformatted_time):
     '''Returns the time in a format fit for the spreadsheet'''
