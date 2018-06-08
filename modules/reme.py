@@ -83,7 +83,7 @@ def increment_msg_counter(bot, message):
                                                      datetime.datetime.now(), 1]
 
 
-@sopel.module.rule(r"\?ops.*")
+@sopel.module.rule(r"\?ops(?:\s.*|$)")
 def smart_ops(bot, message):
     '''A smart version of the ops command, only if enough messages and time in the channel.'''
     if message.sender in bot.config.reme.allowed_channels:
