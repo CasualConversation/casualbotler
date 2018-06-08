@@ -17,7 +17,7 @@ class BanLoggerSection(StaticSection):
     admin_channels = ListAttribute('admin_channels')
     loggable_channels = ListAttribute('loggable_channels')
     log_dir_path = FilenameAttribute('log_dir_path', directory=True)
-    base_form_url = ValidatedAttribute('base_url_form')
+    base_form_url = ValidatedAttribute('base_form_url')
 
 
 def configure(config):

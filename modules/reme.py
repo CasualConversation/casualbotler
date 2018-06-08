@@ -65,11 +65,15 @@ def manage_mini_users_dict(bot):
                     bot.memory['ops_cmd_users'][user][1] = datetime.datetime.now()
 
     # purge users if they were not in the channel for two weeks
+    users_to_delete = []
     for user in bot.memory['ops_cmd_users']:
         first_seen = bot.memory['ops_cmd_users'][user][0]
         last_seen = bot.memory['ops_cmd_users'][user][1]
         if (last_seen-first_seen).days > bot.config.reme.days_before_forgotten:
-            del bot.memory['ops_cmd_users'][user]
+            users_to_delete.append(user)
+
+    for user in users_to_delete:
+        del bot.memory['ops_cmd_users'][user]
 
 
 @sopel.module.rule('.*')
