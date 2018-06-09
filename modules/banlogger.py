@@ -248,8 +248,7 @@ def read_log_file(bot, channel_name, lines_number):
     filepath = os.path.join(bot.config.banlogger.log_dir_path, '{}.log'.format(fixed_chan_name))
     cmd = ('tail', '-n', '{}'.format(lines_number), filepath)
     output = None
-    try:
-        output = subprocess.check_output(list(cmd))
+    output = subprocess.check_output(list(cmd))
 
     log_content = output.decode('utf8')
     return log_content
