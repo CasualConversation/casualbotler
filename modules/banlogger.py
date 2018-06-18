@@ -184,8 +184,11 @@ def serve_filled_form(bot, trigger):
         if info_value is not None:
             url += '&entry.{}={}'.format(ENTRY_INDEXES[info_type],
                                          urllib.parse.quote_plus(info_value))
-
-    bot.reply('\U0001F449\U0001F60E\U0001F449 ' + shortener.short(url))
+    try:
+        shortened_url = shortener.short(url)
+        bot.reply('\U0001F449\U0001F60E\U0001F449 ' + shortened_url)
+    except requests.exceptions.ReadTimeout:
+        bot.reply('TinyURL connection timeout.')
 
 
 @module.commands('helplog')
