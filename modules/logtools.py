@@ -113,9 +113,9 @@ def search(bot, trigger):
     instances = sheet_1_instances + sheet_2_instances
 
     if len(instances) > 5:
-        bot.reply('\U0001F914 ' + create_snoonet_paste('\n'.join(instances)))
+        bot.say('\U0001F914 ' + create_snoonet_paste('\n'.join(instances)))
     else:
-        bot.reply(',     '.join(instances))
+        bot.say(',     '.join(instances), max_messages=3)
 
 
 RELEVANT_SHEETS = ('Operator Actions', 'Pre 2018 Data')

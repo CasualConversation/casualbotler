@@ -118,7 +118,7 @@ def smart_ops(bot, message):
             bot.say(random.choice(bot.config.reme.sass_list))
 
 
-@sopel.module.commands('multiple')
+@sopel.module.commands('clones')
 def multipleusers(bot, trigger):
     '''Finds users that are joined multiple times'''
     is_admin_channel = (trigger.sender in bot.config.logtools.admin_channels)
@@ -138,7 +138,7 @@ def multipleusers(bot, trigger):
 
 
 @sopel.module.commands('idlist')
-def multipleusers(bot, trigger):
+def listsortedids(bot, trigger):
     '''Serves the list of users who have irccloud-style ids as user'''
     is_admin_channel = (trigger.sender in bot.config.logtools.admin_channels)
     if not is_admin_channel:
