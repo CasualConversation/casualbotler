@@ -108,3 +108,4 @@ venv.bak/
 /default.db
 *.pickle
 *.pid
+logs
