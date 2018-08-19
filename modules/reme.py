@@ -54,15 +54,17 @@ def manage_mini_users_dict(bot):
     '''Manages the users dict for this module only'''
 
     # keep track of current users
+    users_to_add = dict()
     for channel in bot.privileges.keys():
         if channel in bot.config.reme.allowed_channels:
             for user in bot.privileges[channel]:
                 if user not in bot.memory['ops_cmd_users']:
                     # first seen, last seen, line number
-                    bot.memory['ops_cmd_users'][user] = [datetime.datetime.now(),
-                                                         datetime.datetime.now(), 0]
+                    users_to_add[user] = [datetime.datetime.now(),
+                                          datetime.datetime.now(), 0]
                 else:
                     bot.memory['ops_cmd_users'][user][1] = datetime.datetime.now()
+    bot.memory['ops_cmd_users'].update(users_to_add)
 
     # purge users if they were not in the channel for two weeks
     users_to_delete = []
