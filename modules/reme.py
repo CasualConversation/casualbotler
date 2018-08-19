@@ -7,6 +7,7 @@ import pickle
 import random
 import sopel.module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
+from collections import Counter, defaultdict
 
 
 PRIV_BIT_MASK = (sopel.module.HALFOP | sopel.module.OP | sopel.module.ADMIN | sopel.module.OWNER)
@@ -14,6 +15,7 @@ PRIV_BIT_MASK = (sopel.module.HALFOP | sopel.module.OP | sopel.module.ADMIN | so
 
 class RemeSection(StaticSection):
     '''A class containing the configuration parameters for the module.'''
+    admin_channels = ListAttribute('admin_channels')
     allowed_channels = ListAttribute('allowed_channels')
     days_before_forgotten = ValidatedAttribute('days_before_forgotten', int, default=14)
     minimum_time_seconds = ValidatedAttribute('minimum_time_seconds', int, default=7200)
@@ -114,3 +116,22 @@ def smart_ops(bot, message):
             bot.say(alert_string_to_say)
         else:
             bot.say(random.choice(bot.config.reme.sass_list))
+
+@sopel.module.commands('multiple')
+def multipleusers(bot, trigger):
+    '''Finds users that are joined multiple times'''
+    is_admin_channel = (trigger.sender in bot.config.logtools.admin_channels)
+    if not is_admin_channel:
+        return
+
+    nicks_by_host = defaultdict(set)
+    for a_channel in bot.config.reme.allowed_channels:
+        for user_nick in bot.privileges[a_channel]:
+            user_obj = bot.users[user_nick]
+            user_host = user_obj.host
+            if 'snoonet' in user_host.lower():  # avoid the administrator peeps
+                continue
+            nicks_by_host[user_host].add(user_nick)
+    multiple_users = {k: v for k, v in nicks_by_host.items() if len(v) > 1}
+    bot.reply(multiple_users)
+
