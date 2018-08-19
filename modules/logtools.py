@@ -93,22 +93,26 @@ def search(bot, trigger):
     sheet_2_instances = []
     for an_index in found_indexes_1:
         relevant_row = bot.memory['sheet_content_1'][an_index]
-        report_str = '{} on {} ({}) (row {})'.format(relevant_row[2],
+        report_str = '{} on {} ({}) in channel {} because "{}" (row {})'.format(relevant_row[2],
                                                      relevant_row[1],
                                                      relevant_row[8],
+                                                     relevant_row[6],
+                                                     relevant_row[7],
                                                      an_index+1+1)  # for index and missing row
         sheet_1_instances.append(report_str)
     for an_index in found_indexes_2:
         relevant_row = bot.memory['sheet_content_2'][an_index]
-        report_str = '{} on {} ({}) (row {} (old sheet))'.format(relevant_row[2],
-                                                                 relevant_row[1],
-                                                                 relevant_row[8],
-                                                                 an_index+1+1)
+        report_str = '{} on {} ({}) in channel {} because "{}" (row {} (old sheet))'.format(relevant_row[2],
+                                                                                            relevant_row[1],
+                                                                                            relevant_row[8],
+								                            relevant_row[6],
+								                            relevant_row[7],
+                                                                                            an_index+1+1)
         sheet_2_instances.append(report_str)
 
     instances = sheet_1_instances + sheet_2_instances
 
-    if len(instances) > 3:
+    if len(instances) > 5:
         bot.reply('\U0001F914 ' + create_snoonet_paste('\n'.join(instances)))
     else:
         bot.reply(',     '.join(instances))
