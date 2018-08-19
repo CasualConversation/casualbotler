@@ -117,6 +117,7 @@ def smart_ops(bot, message):
         else:
             bot.say(random.choice(bot.config.reme.sass_list))
 
+
 @sopel.module.commands('multiple')
 def multipleusers(bot, trigger):
     '''Finds users that are joined multiple times'''
@@ -134,4 +135,30 @@ def multipleusers(bot, trigger):
             nicks_by_host[user_host].add(user_nick)
     multiple_users = {k: v for k, v in nicks_by_host.items() if len(v) > 1}
     bot.reply(multiple_users)
+
+
+@sopel.module.commands('idlist')
+def multipleusers(bot, trigger):
+    '''Serves the list of users who have irccloud-style ids as user'''
+    is_admin_channel = (trigger.sender in bot.config.logtools.admin_channels)
+    if not is_admin_channel:
+        return
+
+    uid_set = set()
+    sid_set = set()
+    for a_channel in bot.config.reme.allowed_channels:
+        for user_nick in bot.privileges[a_channel]:
+            user_obj = bot.users[user_nick]
+            user_user = user_obj.user
+            if user_user[0:3] == 'uid':
+                uid_set.add(user_user)
+            elif user_user[0:3] == 'sid':
+                sid_set.add(user_user)
+    uid_list = list(int(i[3:]) for i in uid_set)
+    uid_list.sort()
+    uid_list = [str(i) for i in uid_list]
+    sid_list = list(int(i[3:]) for i in sid_set)
+    sid_list.sort()
+    sid_list = [str(i) for i in sid_list]
+    bot.say('registered: ' + ', '.join(sid_list) + '   unregistered: ' + ', '.join(uid_list) + '.', max_messages=3)
 
