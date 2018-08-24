@@ -115,7 +115,7 @@ def search(bot, trigger):
     if len(instances) > 5:
         bot.say('\U0001F914 ' + create_snoonet_paste('\n'.join(instances)))
     else:
-        bot.say(',     '.join(instances), max_messages=3)
+        bot.say(',     '.join(instances)+'.', max_messages=3)
 
 
 RELEVANT_SHEETS = ('Operator Actions', 'Pre 2018 Data')

@@ -130,11 +130,13 @@ def multipleusers(bot, trigger):
         for user_nick in bot.privileges[a_channel]:
             user_obj = bot.users[user_nick]
             user_host = user_obj.host
-            if 'snoonet' in user_host.lower():  # avoid the administrator peeps
+            is_privileged = bot.privileges[a_channel][user_nick] & PRIV_BIT_MASK
+            is_network_admin = 'snoonet' in user_host.lower() and 'ip' not in user_host.lower()
+            if is_network_admin or is_privileged:  # avoid the administrator peeps
                 continue
             nicks_by_host[user_host].add(user_nick)
     multiple_users = {k: v for k, v in nicks_by_host.items() if len(v) > 1}
-    bot.reply(multiple_users)
+    bot.say(str(multiple_users)+'.', max_messages=3)
 
 
 @sopel.module.commands('idlist')
