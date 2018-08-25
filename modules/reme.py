@@ -131,7 +131,7 @@ def multipleusers(bot, trigger):
             user_obj = bot.users[user_nick]
             user_host = user_obj.host
             is_privileged = bot.privileges[a_channel][user_nick] & PRIV_BIT_MASK
-            is_network_admin = 'snoonet' in user_host.lower() and 'ip' not in user_host.lower()
+            is_network_admin = 'snoonet/' in user_host.lower()
             if is_network_admin or is_privileged:  # avoid the administrator peeps
                 continue
             nicks_by_host[user_host].add(user_nick)
