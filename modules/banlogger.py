@@ -158,7 +158,7 @@ def log(bot, trigger):
     prettified_lines = prettify_lines(log_lines[start_index:end_index])
     relevant_content = '\n'.join(prettified_lines)
 
-    url_content = create_snoonet_paste(relevant_content)
+    url_content = create_hastebin_paste(relevant_content)
     relevant_info['log_url'] = url_content
     relevant_info['channel'] = CHANNEL_FOR_LOG[args.chan]
 
@@ -199,7 +199,7 @@ def helplog(bot, trigger):
         return
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',log')
-    url = create_snoonet_paste(help_content)
+    url = create_hastebin_paste(help_content)
     bot.reply(url)
 
 
@@ -228,7 +228,7 @@ def prettify_lines(lines):
     return new_lines
 
 
-def create_snoonet_paste(paste_content):
+def create_snoonet_ghostbin_paste(paste_content):
     '''Creates a ghostpaste and returns the link to it'''
     paste_url_prefix = 'https://paste.snoonet.org/paste/'
     post_url = paste_url_prefix+'new'
@@ -243,6 +243,18 @@ def create_snoonet_paste(paste_content):
     response = requests.post(post_url, data=data)
 
     return response.url
+
+
+def create_hastebin_paste(paste_content):
+    '''Creates a hastebin paste and returns the link to it'''
+    paste_url_prefix = 'https://hastebin.com/'
+    post_url = paste_url_prefix + 'documents'
+    data = paste_content.encode()
+    response = requests.post(post_url, data=data)
+
+    paste_url = paste_url_prefix + response.json()['key'] + '.log'
+
+    return paste_url
 
 
 def read_log_file(bot, channel_name, lines_number):
