@@ -9,7 +9,7 @@ from apiclient.discovery import build
 from fuzzywuzzy import fuzz
 from sopel import module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
-
+from banlogger import create_snoonet_ghostbin_paste, create_hastebin_paste
 
 class LogToolsSection(StaticSection):
     '''Data class containing the parameters for the module.'''
@@ -62,6 +62,34 @@ def search_for_indexes(bot, args):
             found_indexes_2.append(index)
     return found_indexes_1, found_indexes_2
 
+@module.commands('latest')
+def latest(bot, trigger):
+    '''Returns the latest logged items'''
+
+    is_admin_channel = (trigger.sender in bot.config.logtools.admin_channels)
+    if not is_admin_channel:
+        return
+
+    if 'sheet_content_1' not in bot.memory:
+        refresh_spreadsheet_content(bot)
+
+
+    entry_number = len(bot.memory['sheet_content_1'])
+
+    sheet_1_instances = []
+
+    for an_index in range(entry_number-3, entry_number):
+        relevant_row = bot.memory['sheet_content_1'][an_index]
+        report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
+                                                                                      relevant_row[1],
+                                                                                      relevant_row[8],
+                                                                                      relevant_row[6],
+                                                                                      relevant_row[0],
+                                                                                      relevant_row[7],
+                                                                                      relevant_row[9],
+                                                                                      an_index+1+1)  # for index and missing row
+        sheet_1_instances.append(report_str)
+    bot.say(',     '.join(sheet_1_instances)+'.', max_messages=4)
 
 @module.commands('search')
 def search(bot, trigger):
@@ -93,27 +121,31 @@ def search(bot, trigger):
     sheet_2_instances = []
     for an_index in found_indexes_1:
         relevant_row = bot.memory['sheet_content_1'][an_index]
-        report_str = '{} on {} ({}) in channel {} because "{}" (row {})'.format(relevant_row[2],
-                                                     relevant_row[1],
-                                                     relevant_row[8],
-                                                     relevant_row[6],
-                                                     relevant_row[7],
-                                                     an_index+1+1)  # for index and missing row
+        report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
+                                                                                relevant_row[1],
+                                                                                relevant_row[8],
+                                                                                relevant_row[6],
+                                                                                relevant_row[0],
+                                                                                relevant_row[7],
+                                                                                relevant_row[9],
+                                                                                an_index+1+1)  # for index and missing row
         sheet_1_instances.append(report_str)
     for an_index in found_indexes_2:
         relevant_row = bot.memory['sheet_content_2'][an_index]
-        report_str = '{} on {} ({}) in channel {} because "{}" (row {} (old sheet))'.format(relevant_row[2],
+        report_str = '{} on {} ({}) in channel {} on {} because "{}" (row {}) (see {}) (old sheet)'.format(relevant_row[2],
                                                                                             relevant_row[1],
                                                                                             relevant_row[8],
-								                            relevant_row[6],
-								                            relevant_row[7],
+                                                                                            relevant_row[6],
+                                                                                            relevant_row[0],
+                                                                                            relevant_row[7],
+                                                                                            relevant_row[9],
                                                                                             an_index+1+1)
         sheet_2_instances.append(report_str)
 
     instances = sheet_1_instances + sheet_2_instances
 
     if len(instances) > 5:
-        bot.say('\U0001F914 ' + create_snoonet_paste('\n'.join(instances)))
+        bot.say('\U0001F914 ' + create_hastebin_paste('\n'.join(instances)))
     else:
         bot.say(',     '.join(instances)+'.', max_messages=3)
 
