@@ -8,6 +8,7 @@ import argparse
 import subprocess
 import urllib
 import requests
+import json
 from sopel import module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute, FilenameAttribute
 from pyshorteners import Shortener
@@ -157,8 +158,11 @@ def log(bot, trigger):
 
     prettified_lines = prettify_lines(log_lines[start_index:end_index])
     relevant_content = '\n'.join(prettified_lines)
-
-    url_content = create_hastebin_paste(relevant_content)
+    try:
+        url_content = create_hastebin_paste(relevant_content)
+    except json.decoder.JSONDecodeError as e:
+        bot.reply('The paste service is down :(')
+        raise Exception(e)
     relevant_info['log_url'] = url_content
     relevant_info['channel'] = CHANNEL_FOR_LOG[args.chan]
 
@@ -199,7 +203,11 @@ def helplog(bot, trigger):
         return
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',log')
-    url = create_hastebin_paste(help_content)
+    try:
+        url = create_hastebin_paste(help_content)
+    except json.decoder.JSONDecodeError as e:
+        bot.reply("The paste service is down :(")
+        raise Exception(e)
     bot.reply(url)
 
 
