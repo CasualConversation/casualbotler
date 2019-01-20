@@ -28,6 +28,7 @@ def configure(config):
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('term', type=str, help='the nick or piece of mask to search')
+parser.add_argument('-c', '--convert', action='store_true')
 
 
 def setup(bot):
@@ -41,6 +42,8 @@ def setup(bot):
         del bot.memory['sheet_content_1']
     if 'sheet_content_2' in bot.memory:
         del bot.memory['sheet_content_2']
+    if 'sheet_content_3' in bot.memory:
+        del bot.memory['sheet_content_3']
 
 
 ACCEPTABLE_RATIO = 75
@@ -50,6 +53,7 @@ def search_for_indexes(bot, args):
     '''Searches the data in the sheets, returns the indexes.'''
     found_indexes_1 = []
     found_indexes_2 = []
+    found_indexes_3 = []
 
     for index, line in enumerate(bot.memory['sheet_content_1']):
         if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
@@ -60,7 +64,12 @@ def search_for_indexes(bot, args):
         if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
                                                         line[1].lower()) >= ACCEPTABLE_RATIO):
             found_indexes_2.append(index)
-    return found_indexes_1, found_indexes_2
+
+    for index, line in enumerate(bot.memory['sheet_content_3']):
+        if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
+                                                        line[1].lower()) >= ACCEPTABLE_RATIO):
+            found_indexes_3.append(index)
+    return found_indexes_1, found_indexes_2, found_indexes_3
 
 @module.commands('latest')
 def latest(bot, trigger):
@@ -78,7 +87,7 @@ def latest(bot, trigger):
 
     sheet_1_instances = []
 
-    for an_index in range(entry_number-3, entry_number):
+    for an_index in range(max(entry_number-3-1, 0), entry_number-1):
         relevant_row = bot.memory['sheet_content_1'][an_index]
         report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
                                                                                       relevant_row[1],
@@ -89,7 +98,7 @@ def latest(bot, trigger):
                                                                                       relevant_row[9],
                                                                                       an_index+1+1)  # for index and missing row
         sheet_1_instances.append(report_str)
-    bot.say(',     '.join(sheet_1_instances)+'.', max_messages=4)
+    bot.say(', \u25A0 '.join(sheet_1_instances)+'.', max_messages=4)
 
 @module.commands('search')
 def search(bot, trigger):
@@ -112,13 +121,27 @@ def search(bot, trigger):
             bot.reply('invalid arguments :(   To learn the command syntax, please use -h')
         return
 
+    if args.convert:
+        nick = args.term
+        lowercase_users = dict()
+        for user in bot.users:
+            lowercase_users[user.lower()] = bot.users[user].host
+        if nick.lower() in lowercase_users:
+            args.term = lowercase_users[nick.lower()]
+            bot.say('Converted {} to {}, using it for the search...'.format(nick, args.term))
+        else:
+            bot.say('Could not convert {} to a host, it is not in one of my allowed channels.'.format(nick))
+            return
+
+
     if 'sheet_content_1' not in bot.memory:
         refresh_spreadsheet_content(bot)
 
-    found_indexes_1, found_indexes_2 = search_for_indexes(bot, args)
+    found_indexes_1, found_indexes_2, found_indexes_3 = search_for_indexes(bot, args)
 
     sheet_1_instances = []
     sheet_2_instances = []
+    sheet_3_instances = []
     for an_index in found_indexes_1:
         relevant_row = bot.memory['sheet_content_1'][an_index]
         report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
@@ -130,9 +153,10 @@ def search(bot, trigger):
                                                                                 relevant_row[9],
                                                                                 an_index+1+1)  # for index and missing row
         sheet_1_instances.append(report_str)
+
     for an_index in found_indexes_2:
         relevant_row = bot.memory['sheet_content_2'][an_index]
-        report_str = '{} on {} ({}) in channel {} on {} because "{}" (row {}) (see {}) (old sheet)'.format(relevant_row[2],
+        report_str = '{} on {} ({}) in channel {} on {} because "{}" (row {}) (see {}) (2018 sheet)'.format(relevant_row[2],
                                                                                             relevant_row[1],
                                                                                             relevant_row[8],
                                                                                             relevant_row[6],
@@ -142,15 +166,28 @@ def search(bot, trigger):
                                                                                             an_index+1+1)
         sheet_2_instances.append(report_str)
 
-    instances = sheet_1_instances + sheet_2_instances
+    for an_index in found_indexes_3:
+        relevant_row = bot.memory['sheet_content_3'][an_index]
+        report_str = '{} on {} ({}) in channel {} on {} because "{}" (row {}) (see {}) (old sheet)'.format(relevant_row[2],
+                                                                                            relevant_row[1],
+                                                                                            relevant_row[8],
+                                                                                            relevant_row[6],
+                                                                                            relevant_row[0],
+                                                                                            relevant_row[7],
+                                                                                            relevant_row[9],
+                                                                                            an_index+1+1)
+        sheet_3_instances.append(report_str)
+
+
+    instances = sheet_1_instances + sheet_2_instances + sheet_3_instances
 
     if len(instances) > 5:
         bot.say('\U0001F914 ' + create_hastebin_paste('\n'.join(instances)))
     else:
-        bot.say(',     '.join(instances)+'.', max_messages=3)
+        bot.say(', \u25A0 '.join(instances)+'.', max_messages=3)
 
 
-RELEVANT_SHEETS = ('Operator Actions', 'Pre 2018 Data')
+RELEVANT_SHEETS = ('Operator Actions 2019', 'Operator Actions 2018', 'Pre-2018 Data')
 RELEVANT_RANGE = 'a2:k'
 
 
@@ -163,6 +200,7 @@ def refresh_spreadsheet_content(bot):
 
     range_1 = RELEVANT_SHEETS[0]+'!'+RELEVANT_RANGE
     range_2 = RELEVANT_SHEETS[1]+'!'+RELEVANT_RANGE
+    range_3 = RELEVANT_SHEETS[2]+'!'+RELEVANT_RANGE
     bot.memory['sheet_content_1'] = \
         values_obj.get(spreadsheetId=bot.config.logtools.spreadsheet_id,
                        range=range_1).execute().get('values', [])
@@ -170,6 +208,10 @@ def refresh_spreadsheet_content(bot):
     bot.memory['sheet_content_2'] = \
         values_obj.get(spreadsheetId=bot.config.logtools.spreadsheet_id,
                        range=range_2).execute().get('values', [])
+    time.sleep(1)
+    bot.memory['sheet_content_3'] = \
+        values_obj.get(spreadsheetId=bot.config.logtools.spreadsheet_id,
+                       range=range_3).execute().get('values', [])
 
 
 @module.commands('helpsearch')
@@ -180,7 +222,7 @@ def helpsearch(bot, trigger):
         return
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',search')
-    url = create_snoonet_paste(help_content)
+    url = create_hastebin_paste(help_content)
     bot.reply(url)
 
 
