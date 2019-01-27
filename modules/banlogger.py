@@ -7,8 +7,14 @@ import os
 import argparse
 import subprocess
 import urllib
-import requests
+import datetime
 import json
+import tempfile
+import requests
+import boto3
+import pygments
+from pygments.lexers import IrcLogsLexer
+from pygments.formatters import HtmlFormatter
 from sopel import module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute, FilenameAttribute
 from pyshorteners import Shortener
@@ -19,6 +25,7 @@ class BanLoggerSection(StaticSection):
     loggable_channels = ListAttribute('loggable_channels')
     log_dir_path = FilenameAttribute('log_dir_path', directory=True)
     base_form_url = ValidatedAttribute('base_form_url')
+    s3_bucket_name = ValidatedAttribute('s3_bucket_name')
 
 
 def configure(config):
@@ -53,6 +60,10 @@ BAN_MACRO_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \(.*\) !k?i?c?k?ba
 def setup(bot):
     '''Invoked when module is loaded.'''
     bot.config.define_section('banlogger', BanLoggerSection, validate=True)
+
+    global s3_bucket_name
+    s3_bucket_name =  bot.config.banlogger.s3_bucket_name
+
     argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     global parser
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -159,7 +170,7 @@ def log(bot, trigger):
     prettified_lines = prettify_lines(log_lines[start_index:end_index])
     relevant_content = '\n'.join(prettified_lines)
     try:
-        url_content = create_hastebin_paste(relevant_content)
+        url_content = create_s3_paste(relevant_content)
     except json.decoder.JSONDecodeError as e:
         bot.reply('The paste service is down :(')
         raise Exception(e)
@@ -204,7 +215,7 @@ def helplog(bot, trigger):
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',log')
     try:
-        url = create_hastebin_paste(help_content)
+        url = create_s3_paste(help_content)
     except json.decoder.JSONDecodeError as e:
         bot.reply("The paste service is down :(")
         raise Exception(e)
@@ -264,6 +275,38 @@ def create_hastebin_paste(paste_content):
 
     return paste_url
 
+
+def create_s3_paste(paste_content):
+    '''Creates a paste and returns the link to the formatted version'''
+    file_title = datetime.datetime.now().replace(microsecond=0).isoformat().replace(':', '').replace('.', '').replace('-', '')+'Z'
+
+    filename_text = file_title + '.txt'
+    filename_formatted = file_title + '.html'
+
+    paste_content_formatted = pygments.highlight(paste_content, IrcLogsLexer(), HtmlFormatter(full=True, style='monokai'))
+
+    filelike_text = tempfile.TemporaryFile()
+    filelike_text.write(paste_content.encode('utf-8'))
+    filelike_text.seek(0)
+
+    filelike_formatted = tempfile.TemporaryFile()
+    filelike_formatted.write(paste_content_formatted.encode('utf-8'))
+    filelike_formatted.seek(0)
+
+    s3client = boto3.client('s3')
+    s3resource = boto3.resource('s3')
+    s3client.upload_fileobj(filelike_text, s3_bucket_name, filename_text)
+    s3client.upload_fileobj(filelike_formatted, s3_bucket_name, filename_formatted)
+
+    # Set the content-type, it cannot be done at upload time it seems...
+    obj_text = s3resource.Object(s3_bucket_name, filename_text)
+    obj_text.copy_from(CopySource={'Bucket': s3_bucket_name, 'Key': filename_text}, MetadataDirective='REPLACE', ContentType='text/plain; charset=utf-8')
+    obj_formatted = s3resource.Object(s3_bucket_name, filename_formatted)
+    obj_formatted.copy_from(CopySource={'Bucket': s3_bucket_name, 'Key': filename_formatted}, MetadataDirective='REPLACE', ContentType='text/html; charset=utf-8')
+
+    # Make the url to return
+    url = 'http://{}/{}'.format(s3_bucket_name, filename_formatted)
+    return url
 
 def read_log_file(bot, channel_name, lines_number):
     '''Reads a log file, returns the lines'''

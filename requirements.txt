@@ -6,3 +6,5 @@ fuzzywuzzy
 google-api-python-client
 oauth2client
 python-Levenshtein
+boto3
+Pygments

@@ -9,7 +9,7 @@ from apiclient.discovery import build
 from fuzzywuzzy import fuzz
 from sopel import module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
-from banlogger import create_snoonet_ghostbin_paste, create_hastebin_paste
+from banlogger import create_s3_paste, create_snoonet_ghostbin_paste, create_hastebin_paste
 
 class LogToolsSection(StaticSection):
     '''Data class containing the parameters for the module.'''
@@ -182,7 +182,7 @@ def search(bot, trigger):
     instances = sheet_1_instances + sheet_2_instances + sheet_3_instances
 
     if len(instances) > 5:
-        bot.say('\U0001F914 ' + create_hastebin_paste('\n'.join(instances)))
+        bot.say('\U0001F914 ' + create_s3_paste('\n'.join(instances)))
     else:
         bot.say(', \u25A0 '.join(instances)+'.', max_messages=3)
 
@@ -222,7 +222,7 @@ def helpsearch(bot, trigger):
         return
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',search')
-    url = create_hastebin_paste(help_content)
+    url = create_s3_paste(help_content)
     bot.reply(url)
 
 
