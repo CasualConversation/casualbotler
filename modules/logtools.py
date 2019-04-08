@@ -156,7 +156,7 @@ def search(bot, trigger):
 
     for an_index in found_indexes_2:
         relevant_row = bot.memory['sheet_content_2'][an_index]
-        report_str = '{} on {} ({}) in channel {} on {} because "{}" (row {}) (see {}) (2018 sheet)'.format(relevant_row[2],
+        report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {}) (2018 sheet)'.format(relevant_row[2],
                                                                                             relevant_row[1],
                                                                                             relevant_row[8],
                                                                                             relevant_row[6],
@@ -168,7 +168,7 @@ def search(bot, trigger):
 
     for an_index in found_indexes_3:
         relevant_row = bot.memory['sheet_content_3'][an_index]
-        report_str = '{} on {} ({}) in channel {} on {} because "{}" (row {}) (see {}) (old sheet)'.format(relevant_row[2],
+        report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {}) (old sheet)'.format(relevant_row[2],
                                                                                             relevant_row[1],
                                                                                             relevant_row[8],
                                                                                             relevant_row[6],
@@ -181,10 +181,17 @@ def search(bot, trigger):
 
     instances = sheet_1_instances + sheet_2_instances + sheet_3_instances
 
-    if len(instances) > 5:
-        bot.say('\U0001F914 ' + create_s3_paste('\n'.join(instances)))
+    if len(instances) > 3:
+        answer_string = '\U0001F914 ' + create_s3_paste('\n'.join(instances))
+        bot.say(answer_string, max_messages=3)
+    elif len(instances) == 0:
+        print('None found.')
     else:
-        bot.say(', \u25A0 '.join(instances)+'.', max_messages=3)
+        for an_instance in instances:
+            answer_string = '\u25A0 ' + an_instance
+            bot.say(answer_string, max_messages=2)
+
+    print(repr(answer_string))
 
 
 RELEVANT_SHEETS = ('Operator Actions 2019', 'Operator Actions 2018', 'Pre-2018 Data')
