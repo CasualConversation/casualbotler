@@ -27,7 +27,7 @@ def configure(config):
 
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('term', type=str, help='the nick or piece of mask to search')
+parser.add_argument('terms', type=str, nargs='+', help='the nick or piece of mask to search')
 parser.add_argument('-c', '--convert', action='store_true')
 
 
@@ -49,24 +49,24 @@ def setup(bot):
 ACCEPTABLE_RATIO = 75
 
 
-def search_for_indexes(bot, args):
+def search_for_indexes(bot, search_term):
     '''Searches the data in the sheets, returns the indexes.'''
     found_indexes_1 = []
     found_indexes_2 = []
     found_indexes_3 = []
 
     for index, line in enumerate(bot.memory['sheet_content_1']):
-        if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
-                                                        line[1].lower()) >= ACCEPTABLE_RATIO):
+        if line and (search_term in line[8] or fuzz.ratio(search_term.lower(),
+                                                          line[1].lower()) >= ACCEPTABLE_RATIO):
             found_indexes_1.append(index)
 
     for index, line in enumerate(bot.memory['sheet_content_2']):
-        if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
+        if line and (search_term in line[8] or fuzz.ratio(search_term.lower(),
                                                         line[1].lower()) >= ACCEPTABLE_RATIO):
             found_indexes_2.append(index)
 
     for index, line in enumerate(bot.memory['sheet_content_3']):
-        if line and (args.term in line[8] or fuzz.ratio(args.term.lower(),
+        if line and (search_term in line[8] or fuzz.ratio(search_term.lower(),
                                                         line[1].lower()) >= ACCEPTABLE_RATIO):
             found_indexes_3.append(index)
     return found_indexes_1, found_indexes_2, found_indexes_3
@@ -87,8 +87,9 @@ def latest(bot, trigger):
 
     sheet_1_instances = []
 
-    for an_index in range(max(entry_number-3-1, 0), entry_number-1):
+    for an_index in range(max(entry_number-3-1, 0), entry_number-2):
         relevant_row = bot.memory['sheet_content_1'][an_index]
+        print(relevant_row)
         report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
                                                                                       relevant_row[1],
                                                                                       relevant_row[8],
@@ -98,7 +99,8 @@ def latest(bot, trigger):
                                                                                       relevant_row[9],
                                                                                       an_index+1+1)  # for index and missing row
         sheet_1_instances.append(report_str)
-    bot.say(', \u25A0 '.join(sheet_1_instances)+'.', max_messages=4)
+    for an_instance in sheet_1_instances:
+        bot.say('\u25A0 ' + an_instance, max_messages=2)
 
 @module.commands('search')
 def search(bot, trigger):
@@ -122,22 +124,40 @@ def search(bot, trigger):
         return
 
     if args.convert:
-        nick = args.term
-        lowercase_users = dict()
-        for user in bot.users:
-            lowercase_users[user.lower()] = bot.users[user].host
-        if nick.lower() in lowercase_users:
-            args.term = lowercase_users[nick.lower()]
-            bot.say('Converted {} to {}, using it for the search...'.format(nick, args.term))
-        else:
-            bot.say('Could not convert {} to a host, it is not in one of my allowed channels.'.format(nick))
-            return
+        search_terms = []
+        for a_nick in args.terms:
+            lowercase_users = dict()
+            for user in bot.users:
+                lowercase_users[user.lower()] = bot.users[user].host
+            if a_nick.lower() in lowercase_users:
+                host_term = lowercase_users[a_nick.lower()]
+                search_terms.append(host_term)
+                bot.say('Converted {} to {}, using it for the search...'.format(a_nick, host_term))
+            else:
+                search_terms.append(a_nick)
+                bot.say('Could not convert {} to a host, it is not in one of my allowed channels. searching without conversion...'.format(a_nick))
+    else:
+        search_terms = args.terms
 
 
     if 'sheet_content_1' not in bot.memory:
         refresh_spreadsheet_content(bot)
 
-    found_indexes_1, found_indexes_2, found_indexes_3 = search_for_indexes(bot, args)
+    found_indexes_1 = []
+    found_indexes_2 = []
+    found_indexes_3 = []
+
+    for a_term in search_terms:
+        if a_term == None:
+            continue
+        found_indexes_1_temp, found_indexes_2_temp, found_indexes_3_temp = search_for_indexes(bot, a_term)
+        found_indexes_1.extend(found_indexes_1_temp)
+        found_indexes_2.extend(found_indexes_2_temp)
+        found_indexes_3.extend(found_indexes_3_temp)
+
+    found_indexes_1 = list(sorted(set(found_indexes_1)))
+    found_indexes_2 = list(sorted(set(found_indexes_2)))
+    found_indexes_3 = list(sorted(set(found_indexes_3)))
 
     sheet_1_instances = []
     sheet_2_instances = []
@@ -185,13 +205,11 @@ def search(bot, trigger):
         answer_string = '\U0001F914 ' + create_s3_paste('\n'.join(instances))
         bot.say(answer_string, max_messages=3)
     elif len(instances) == 0:
-        print('None found.')
+        bot.say('None found.')
     else:
         for an_instance in instances:
             answer_string = '\u25A0 ' + an_instance
             bot.say(answer_string, max_messages=2)
-
-    print(repr(answer_string))
 
 
 RELEVANT_SHEETS = ('Operator Actions 2019', 'Operator Actions 2018', 'Pre-2018 Data')
