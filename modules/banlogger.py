@@ -246,7 +246,7 @@ def helplog(bot, trigger):
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',log')
     try:
-        url = create_s3_paste(help_content)
+        url = create_s3_paste(help_content, wanted_title="logcommandhelp")
     except json.decoder.JSONDecodeError as e:
         bot.reply("The paste service is down :(")
         raise Exception(e)
@@ -307,9 +307,12 @@ def create_hastebin_paste(paste_content):
     return paste_url
 
 
-def create_s3_paste(paste_content):
+def create_s3_paste(paste_content, wanted_title=None):
     '''Creates a paste and returns the link to the formatted version'''
-    file_title = datetime.datetime.now().replace(microsecond=0).isoformat().replace(':', '').replace('.', '').replace('-', '')+'Z'
+    if wanted_title:
+        file_title = wanted_title
+    else:
+        file_title = datetime.datetime.now().replace(microsecond=0).isoformat().replace(':', '').replace('.', '').replace('-', '')+'Z'
 
     filename_text = file_title + '.txt'
     filename_formatted = file_title + '.html'

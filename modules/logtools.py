@@ -247,7 +247,7 @@ def helpsearch(bot, trigger):
         return
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',search')
-    url = create_s3_paste(help_content)
+    url = create_s3_paste(help_content, wanted_title="searchcommandhelp")
     bot.reply(url)
 
 
