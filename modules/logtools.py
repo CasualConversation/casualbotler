@@ -87,18 +87,19 @@ def latest(bot, trigger):
 
     sheet_1_instances = []
 
-    for an_index in range(max(entry_number-3-1, 0), entry_number-2):
+    for an_index in range(max(entry_number-3-1, 0), entry_number-1):
         relevant_row = bot.memory['sheet_content_1'][an_index]
         print(relevant_row)
-        report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
-                                                                                      relevant_row[1],
-                                                                                      relevant_row[8],
-                                                                                      relevant_row[6],
-                                                                                      relevant_row[0],
-                                                                                      relevant_row[7],
-                                                                                      relevant_row[9],
-                                                                                      an_index+1+1)  # for index and missing row
-        sheet_1_instances.append(report_str)
+        if any(relevant_row):
+            report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
+                                                                                          relevant_row[1],
+                                                                                          relevant_row[8],
+                                                                                          relevant_row[6],
+                                                                                          relevant_row[0],
+                                                                                          relevant_row[7],
+                                                                                          relevant_row[9],
+                                                                                          an_index+1+1)  # for index and missing row
+            sheet_1_instances.append(report_str)
     for an_instance in sheet_1_instances:
         bot.say('\u25A0 ' + an_instance, max_messages=2)
 
