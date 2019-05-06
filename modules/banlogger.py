@@ -86,7 +86,7 @@ def setup(bot):
                         default='#casualconversation', help='the channel to log')
 
     global shortener
-    shortener = Shortener('Tinyurl')
+    shortener = Shortener('Tinyurl', timeout=10)
 
     bot.memory['last_log_information'] = {'nick': None, 'result': None, 'length': None, 'operator': None,
                                           'channel': None, 'reason': None, 'host': None, 'paste': None}
@@ -186,6 +186,39 @@ ENTRY_INDEXES = {'nick': '1999262323', 'result': '1898835520', 'length': '111803
                  'reason': '956001950', 'host': '400563484', 'log_url': '958498595',
                  'additional_information': 'entry.1480742756'}
 
+def get_mod_emoji(mod_nick):
+    if mod_nick in  ('A_D, A_Dragon'):
+        center = '\U0001F432'
+    elif mod_nick == 'anders':
+        center = '\U0001F34D'
+    elif mod_nick == 'carawayseeds':
+        center = '\U0001F335'
+    elif mod_nick in ('DavidLuizsHair', 'Tapu-Fini'):
+        center = '\U0001F9A1'
+    elif mod_nick == 'diss':
+        center = '\U0001F435'
+    elif mod_nick in ('entropy', 'void', 'unicorn', 'unic0rn23'):
+        center = '\U0001F998'
+    elif mod_nick == 'janesays':
+        center = '\U0001F377'
+    elif mod_nick == 'SolarFlare':
+        center = '\U0001F411'
+    elif mod_nick == 'LeMapleMoose':
+        center = '\U0001F98C'
+    elif mod_nick in ('linuxdaemon', 'pizza', 'linuxinthecloud'):
+        center = '\U0001F43A'
+    elif mod_nick == 'Matthew':
+        center = '\U0001F48A'
+    elif mod_nick == 'owlet':
+        center = '\U0001F989'
+    elif mod_nick == 'timekeeper':
+        center = '\U0001F359'
+    elif mod_nick == 'znuxor':
+        center = '\U0001F916'
+    else:
+        center = '\U0001F60E'
+    return center
+
 
 @module.commands('form')
 def serve_filled_form(bot, trigger):
@@ -199,42 +232,15 @@ def serve_filled_form(bot, trigger):
         if info_value is not None:
             url += '&entry.{}={}'.format(ENTRY_INDEXES[info_type],
                                          urllib.parse.quote_plus(info_value))
+    center = get_mod_emoji(trigger.nick)
+
     try:
         shortened_url = shortener.short(url)
-        if trigger.nick in  ('A_D, A_Dragon'):
-            center = '\U0001F432'
-        elif trigger.nick == 'anders':
-            center = '\U0001F34D'
-        elif trigger.nick == 'carawayseeds':
-            center = '\U0001F335'
-        elif trigger.nick in ('DavidLuizsHair', 'Tapu-Fini'):
-            center = '\U0001F9A1'
-        elif trigger.nick == 'diss':
-            center = '\U0001F435'
-        elif trigger.nick in ('entropy', 'void', 'unicorn', 'unic0rn23'):
-            center = '\U0001F998'
-        elif trigger.nick == 'janesays':
-            center = '\U0001F377'
-        elif trigger.nick == 'SolarFlare':
-            center = '\U0001F411'
-        elif trigger.nick == 'LeMapleMoose':
-            center = '\U0001F98C'
-        elif trigger.nick in ('linuxdaemon', 'pizza', 'linuxinthecloud'):
-            center = '\U0001F43A'
-        elif trigger.nick == 'Matthew':
-            center = '\U0001F48A'
-        elif trigger.nick == 'owlet':
-            center = '\U0001F989'
-        elif trigger.nick == 'timekeeper':
-            center = '\U0001F359'
-        elif trigger.nick == 'znuxor':
-            center = '\U0001F916'
-        else:
-            center = '\U0001F60E'
-
-        bot.reply('\U0001F449'+center+'\U0001F449 ' + shortened_url)
     except requests.exceptions.ReadTimeout:
         bot.reply('TinyURL connection timeout.')
+    else:
+        bot.reply('\U0001F449'+center+'\U0001F449 ' + shortened_url)
+
 
 
 @module.commands('helplog')
