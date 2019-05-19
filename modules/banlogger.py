@@ -4,12 +4,12 @@
 import json
 import os
 import re
-import requests
 import shlex
 import sys
 import argparse
 import subprocess
 import urllib
+import requests
 from sopel import module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute, FilenameAttribute
 from pyshorteners import Shortener
@@ -19,7 +19,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils import get_mod_emoji, create_s3_paste
 
+
 class BanLoggerSection(StaticSection):
+    '''Defines the section of the configuration for this module.'''
     admin_channels = ListAttribute('admin_channels')
     loggable_channels = ListAttribute('loggable_channels')
     log_dir_path = FilenameAttribute('log_dir_path', directory=True)
@@ -32,9 +34,9 @@ def configure(config):
     config.define_section('banlogger', BanLoggerSection, validate=True)
 
 
-parser = None
+LOG_CMD_PARSER = None
 
-shortener = None
+URL_SHORTENER = None
 
 # Format them with the appropriate information!
 VALID_NICK = r'[a-zA-Z0-9_\-\\\[\]\{\}\^\`\|]+'
@@ -43,13 +45,17 @@ OPT_DURATION_GROUP = r'(\+\d{1,3}[smhdy])? ?'
 
 MUTE_REGEX = re.compile(ISO8601+r' --  Mode #?\w+ \(\+b m:(.*)\) by ('+VALID_NICK+r') \((.*)\)')
 BAN_REGEX = re.compile(ISO8601+r' --  Mode #?\w+ \(\+b (.*)\) by ('+VALID_NICK+r') \((.*)\)')
-KICK_REGEX = re.compile(ISO8601+r' <-- ('+VALID_NICK+r') \((.*)\) has kicked ('+VALID_NICK+r') \(?(.*)\)?')
-REMOVED_REGEX = re.compile(ISO8601+r' <-- ('+VALID_NICK+r') \((.*)\) has left \(?Removed by ('+VALID_NICK+r').*\)?')
+KICK_REGEX = re.compile(ISO8601+r' <-- ('+VALID_NICK+r') \((.*)\) has kicked (' +
+                        VALID_NICK+r') \(?(.*)\)?')
+REMOVED_REGEX = re.compile(ISO8601+r' <-- ('+VALID_NICK +
+                           r') \((.*)\) has left \(?Removed by ('+VALID_NICK+r').*\)?')
 MSG_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \((.*)\) (.*)')
-SWITCH_REGEX = re.compile(ISO8601+r' --  ('+VALID_NICK+r') \((.*)\) is now known as ('+VALID_NICK+')')
+SWITCH_REGEX = re.compile(ISO8601+r' --  ('+VALID_NICK +
+                          r') \((.*)\) is now known as ('+VALID_NICK+')')
 JOIN_REGEX = re.compile(ISO8601+r' --> ('+VALID_NICK+r') \((.*)\) has joined .*')
 
-KICK_MACRO_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \(.*\) !ki?c?k? ('+VALID_NICK+r') ?(.*)')
+KICK_MACRO_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK +
+                              r') \(.*\) !ki?c?k? ('+VALID_NICK+r') ?(.*)')
 MUTE_MACRO_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \(.*\) !mu?t?e? ' +
                               OPT_DURATION_GROUP+r'('+VALID_NICK+r') ?(.*)')
 BAN_MACRO_REGEX = re.compile(ISO8601+r'     ('+VALID_NICK+r') \(.*\) !k?i?c?k?ba?n? ' +
@@ -60,35 +66,67 @@ def setup(bot):
     '''Invoked when module is loaded.'''
     bot.config.define_section('banlogger', BanLoggerSection, validate=True)
 
-    global s3_bucket_name
-    s3_bucket_name =  bot.config.banlogger.s3_bucket_name
-
     argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    global parser
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('mode', type=str, choices=['recent', 'auto'], default='auto',
-                        help='the desired logging mode')
-    parser.add_argument('--linenumber', '-l', type=int, choices=range(1, 4001), default=100,
-                        metavar="[1-4000]", help='the number of lines to log in recent mode')
-    parser.add_argument('--maxautolines', '-m', type=int, choices=range(1, 4001), default=4000,
-                        metavar="[1-4000]",
-                        help='the maximum number of lines to search in auto mode')
-    parser.add_argument('--maxlogautolines', '-b', type=int, choices=range(1, 4001), default=400,
-                        metavar="[1-4000]",
-                        help='the maximum number of lines for the log in auto mode')
-    parser.add_argument('--followinglines', '-f', type=int, choices=range(0, 101), default=2,
-                        metavar="[0-100]",
-                        help='the desired number of lines following the action in auto mode')
-    parser.add_argument('--skip', '-s', type=int, choices=range(11), default=0, metavar="[0-10]",
-                        help='the number of actions to skip in auto mode')
-    parser.add_argument('--chan', '-c', type=str.lower, choices=bot.config.banlogger.loggable_channels,
-                        default='#casualconversation', help='the channel to log')
+    global LOG_CMD_PARSER
+    LOG_CMD_PARSER = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    LOG_CMD_PARSER.add_argument('mode',
+                                type=str,
+                                choices=['recent', 'auto'],
+                                default='auto',
+                                help='the desired logging mode')
+    LOG_CMD_PARSER.add_argument('--linenumber',
+                                '-l',
+                                type=int,
+                                choices=range(1, 4001),
+                                default=100,
+                                metavar="[1-4000]",
+                                help='the number of lines to log in recent mode')
+    LOG_CMD_PARSER.add_argument('--maxautolines',
+                                '-m',
+                                type=int,
+                                choices=range(1, 4001),
+                                default=4000,
+                                metavar="[1-4000]",
+                                help='the maximum number of lines to search in auto mode')
+    LOG_CMD_PARSER.add_argument('--maxlogautolines',
+                                '-b',
+                                type=int,
+                                choices=range(1, 4001),
+                                default=400,
+                                metavar="[1-4000]",
+                                help='the maximum number of lines for the log in auto mode')
+    LOG_CMD_PARSER.add_argument('--followinglines',
+                                '-f',
+                                type=int,
+                                choices=range(0, 101),
+                                default=2,
+                                metavar="[0-100]",
+                                help='the desired number of lines after the action in auto mode')
+    LOG_CMD_PARSER.add_argument('--skip',
+                                '-s',
+                                type=int,
+                                choices=range(11),
+                                default=0,
+                                metavar="[0-10]",
+                                help='the number of actions to skip in auto mode')
+    LOG_CMD_PARSER.add_argument('--chan',
+                                '-c',
+                                type=str.lower,
+                                choices=bot.config.banlogger.loggable_channels,
+                                default='#casualconversation',
+                                help='the channel to log')
 
-    global shortener
-    shortener = Shortener('Tinyurl', timeout=10)
+    global URL_SHORTENER
+    URL_SHORTENER = Shortener('Tinyurl', timeout=10)
 
-    bot.memory['last_log_information'] = {'nick': None, 'result': None, 'length': None, 'operator': None,
-                                          'channel': None, 'reason': None, 'host': None, 'paste': None}
+    bot.memory['last_log_information'] = {'nick': None,
+                                          'result': None,
+                                          'length': None,
+                                          'operator': None,
+                                          'channel': None,
+                                          'reason': None,
+                                          'host': None,
+                                          'paste': None}
 
 
 CHANNEL_FOR_LOG = {'#casualconversation': '#Casualconversation',
@@ -101,6 +139,7 @@ APPROPRIATE_BACKTRACK_NUMBER = 8  # The number of lines to analyze before an act
 
 @module.commands('log')
 def log(bot, trigger):
+    '''Bot function to log a ban in a given channel, has multiple options.'''
 
     extra_info = ''
 
@@ -113,7 +152,7 @@ def log(bot, trigger):
         bot.reply('No arguments :(   To learn the command syntax, please use -h')
         return
     try:
-        args = parser.parse_args(shlex.split(arguments))
+        args = LOG_CMD_PARSER.parse_args(shlex.split(arguments))
     except SystemExit:
         if '-h' in arguments or '--help' in arguments or 'help' in arguments:
             helplog(bot, trigger)
@@ -130,7 +169,7 @@ def log(bot, trigger):
         if action_index is None:
             relevant_info = dict()
         else:  # duplicated, but I'm not comfortable because it's used below too
-            relevant_info = get_action_relevant_information(log_lines[action_index])
+            relevant_info = get_action_relevant_info(log_lines[action_index])
             deduce_last_nickname_or_hostmask(log_lines[:action_index], relevant_info)
             if relevant_info['operator'] == 'Casual_Ban_Bot':
                 backtrack_index = max(0, action_index-APPROPRIATE_BACKTRACK_NUMBER)
@@ -146,7 +185,7 @@ def log(bot, trigger):
             return
         end_index = min(log_length, action_index+args.followinglines+1)  # +1 to include the index
 
-        relevant_info = get_action_relevant_information(log_lines[action_index])
+        relevant_info = get_action_relevant_info(log_lines[action_index])
         deduce_last_nickname_or_hostmask(log_lines[:action_index], relevant_info)
         if relevant_info['operator'] == 'Casual_Ban_Bot':
             backtrack_index = max(0, action_index-APPROPRIATE_BACKTRACK_NUMBER)
@@ -169,10 +208,10 @@ def log(bot, trigger):
     prettified_lines = prettify_lines(log_lines[start_index:end_index])
     relevant_content = '\n'.join(prettified_lines)
     try:
-        url_content = create_s3_paste(s3_bucket_name, relevant_content)
-    except json.decoder.JSONDecodeError as e:
+        url_content = create_s3_paste(bot.config.banlogger.s3_bucket_name, relevant_content)
+    except json.decoder.JSONDecodeError as err:
         bot.reply('The paste service is down :(')
-        raise Exception(e)
+        raise Exception(err)
     relevant_info['log_url'] = url_content
     relevant_info['channel'] = CHANNEL_FOR_LOG[args.chan]
 
@@ -184,6 +223,7 @@ ENTRY_INDEXES = {'nick': '1999262323', 'result': '1898835520', 'length': '111803
                  'operator': '1103903875', 'operator2': '1469630831', 'channel': '729017272',
                  'reason': '956001950', 'host': '400563484', 'log_url': '958498595',
                  'additional_information': 'entry.1480742756'}
+
 
 @module.commands('form')
 def serve_filled_form(bot, trigger):
@@ -200,12 +240,11 @@ def serve_filled_form(bot, trigger):
     center = get_mod_emoji(trigger.nick)
 
     try:
-        shortened_url = shortener.short(url)
+        shortened_url = URL_SHORTENER.short(url)
     except requests.exceptions.ReadTimeout:
         bot.reply('TinyURL connection timeout.')
     else:
         bot.reply('\U0001F449'+center+'\U0001F449 ' + shortened_url)
-
 
 
 @module.commands('helplog')
@@ -214,13 +253,15 @@ def helplog(bot, trigger):
     is_admin_channel = (trigger.sender in bot.config.banlogger.admin_channels)
     if not is_admin_channel:
         return
-    help_content = parser.format_help()
+    help_content = LOG_CMD_PARSER.format_help()
     help_content = help_content.replace('sopel', ',log')
     try:
-        url = create_s3_paste(s3_bucket_name, help_content, wanted_title="logcommandhelp")
-    except json.decoder.JSONDecodeError as e:
+        url = create_s3_paste(bot.config.banlogger.s3_bucket_name,
+                              help_content,
+                              wanted_title="logcommandhelp")
+    except json.decoder.JSONDecodeError as err:
         bot.reply("The paste service is down :(")
-        raise Exception(e)
+        raise Exception(err)
     bot.reply(url)
 
 
@@ -266,13 +307,16 @@ VPN_MESSAGE_PART = 'You must register your nickname to use a VPN connection on t
 
 def get_action_line_index(log_lines, action_number_to_skip):
     '''Gets the index of the relevant action'''
+
+    index_to_return = None
+
     for line_index, line_str in reversed(list(enumerate(log_lines))):
         mute_match = MUTE_REGEX.match(line_str)
         ban_match = BAN_REGEX.match(line_str)
         simple_kick_match = KICK_REGEX.match(line_str)
         removed_by_op_match = REMOVED_REGEX.match(line_str)
         ban_match = BAN_REGEX.match(line_str)
-        isAnAction = mute_match or ban_match or simple_kick_match or removed_by_op_match
+        is_an_action = mute_match or ban_match or simple_kick_match or removed_by_op_match
         if (simple_kick_match and
                 simple_kick_match.group(1) == 'gonzobot'):  # ugh duckhunt
             continue
@@ -288,50 +332,54 @@ def get_action_line_index(log_lines, action_number_to_skip):
                 ban_match.group(2) == 'StormBot' and
                 'fix-your-connection' in ban_match.group(1)):  # connection fix timed ban
             continue
-        if isAnAction and action_number_to_skip <= 0:
-            return line_index
-        elif isAnAction:
+        if is_an_action and action_number_to_skip <= 0:
+            index_to_return = line_index
+            break
+        elif is_an_action:
             action_number_to_skip -= 1
 
+    return index_to_return
 
-def get_action_relevant_information(line_str):
+
+def get_action_relevant_info(line_str):
     '''Returns a dictionary of useful information from the action line'''
-    relevant_information = dict()
+    relevant_info = dict()
     mute_match = MUTE_REGEX.match(line_str)
     ban_match = BAN_REGEX.match(line_str)
     simple_kick_match = KICK_REGEX.match(line_str)
     removed_by_op_match = REMOVED_REGEX.match(line_str)
 
+    # permanent bans are downgraded to timed bans during backtrack
     if mute_match:
-        relevant_information['result'] = 'Permanent Mute'  # will be downgrater to timed during backtrack
-        relevant_information['host'] = mute_match.group(1).split('@')[1]
-        relevant_information['operator'] = mute_match.group(2)
+        relevant_info['result'] = 'Permanent Mute'
+        relevant_info['host'] = mute_match.group(1).split('@')[1]
+        relevant_info['operator'] = mute_match.group(2)
     elif ban_match:
-        relevant_information['result'] = 'Permanent Ban'  # will be downgraded to timed during backtrack
-        relevant_information['host'] = ban_match.group(1).split('@')[1]
-        relevant_information['operator'] = ban_match.group(2)
+        relevant_info['result'] = 'Permanent Ban'
+        relevant_info['host'] = ban_match.group(1).split('@')[1]
+        relevant_info['operator'] = ban_match.group(2)
     elif simple_kick_match:
-        relevant_information['result'] = 'Kick'
-        relevant_information['operator'] = simple_kick_match.group(1)
-        relevant_information['nick'] = simple_kick_match.group(3)
-        relevant_information['reason'] = simple_kick_match.group(4)
+        relevant_info['result'] = 'Kick'
+        relevant_info['operator'] = simple_kick_match.group(1)
+        relevant_info['nick'] = simple_kick_match.group(3)
+        relevant_info['reason'] = simple_kick_match.group(4)
     elif removed_by_op_match:
-        relevant_information['result'] = 'Kick'  # for logging purposes, interpreted as kick
-        relevant_information['nick'] = removed_by_op_match.group(1)
-        relevant_information['host'] = removed_by_op_match.group(2).split('@')[1]
-        relevant_information['operator'] = removed_by_op_match.group(3)
+        relevant_info['result'] = 'Kick'  # for logging purposes, interpreted as kick
+        relevant_info['nick'] = removed_by_op_match.group(1)
+        relevant_info['host'] = removed_by_op_match.group(2).split('@')[1]
+        relevant_info['operator'] = removed_by_op_match.group(3)
 
-    return relevant_information
+    return relevant_info
 
 
-def deduce_last_nickname_or_hostmask(log_lines, relevant_information):
+def deduce_last_nickname_or_hostmask(log_lines, relevant_info):
     '''Deduces the nickname from the hostmask or vice-versa'''
-    if 'host' not in relevant_information:
+    if 'host' not in relevant_info:
         missing_info = 'host'
-        provided_info = 'nick'
-    elif 'nick' not in relevant_information:
+        known_info = 'nick'
+    elif 'nick' not in relevant_info:
         missing_info = 'nick'
-        provided_info = 'host'
+        known_info = 'host'
     else:
         # all the info is already available
         print('deducing failed')
@@ -341,44 +389,44 @@ def deduce_last_nickname_or_hostmask(log_lines, relevant_information):
         # If they speak, we have their hostmask and nick
         # If they switch their nick, we get their hostmask and nick that way too
         # If we get their join line, that gives us their nick and hostmask
-        a_message_match = MSG_REGEX.match(line_str)
-        a_switch_match = SWITCH_REGEX.match(line_str)
-        a_join_match = JOIN_REGEX.match(line_str)
+        message_match = MSG_REGEX.match(line_str)
+        switch_match = SWITCH_REGEX.match(line_str)
+        join_match = JOIN_REGEX.match(line_str)
         if missing_info == 'nick':
-            if a_message_match and a_message_match.group(2).split('@')[1] == relevant_information[provided_info]:
-                relevant_information[missing_info] = a_message_match.group(1)
+            if message_match and message_match.group(2).split('@')[1] == relevant_info[known_info]:
+                relevant_info[missing_info] = message_match.group(1)
                 break
-            if a_switch_match and a_switch_match.group(2).split('@')[1] == relevant_information[provided_info]:
-                relevant_information[missing_info] = a_switch_match.group(3)
+            if switch_match and switch_match.group(2).split('@')[1] == relevant_info[known_info]:
+                relevant_info[missing_info] = switch_match.group(3)
                 break
-            if a_join_match and a_join_match.group(2).split('@')[1] == relevant_information[provided_info]:
-                relevant_information[missing_info] = a_join_match.group(1)
+            if join_match and join_match.group(2).split('@')[1] == relevant_info[known_info]:
+                relevant_info[missing_info] = join_match.group(1)
                 break
         elif missing_info == 'host':
-            if a_message_match and a_message_match.group(1) == relevant_information[provided_info]:
-                relevant_information[missing_info] = a_message_match.group(2).split('@')[1]
+            if message_match and message_match.group(1) == relevant_info[known_info]:
+                relevant_info[missing_info] = message_match.group(2).split('@')[1]
                 break
-            if a_switch_match and a_switch_match.group(3) == relevant_information[provided_info]:
-                relevant_information[missing_info] = a_switch_match.group(2).split('@')[1]
+            if switch_match and switch_match.group(3) == relevant_info[known_info]:
+                relevant_info[missing_info] = switch_match.group(2).split('@')[1]
                 break
-            if a_join_match and a_join_match.group(1) == relevant_information[provided_info]:
-                relevant_information[missing_info] = a_join_match.group(2).split('@')[1]
+            if join_match and join_match.group(1) == relevant_info[known_info]:
+                relevant_info[missing_info] = join_match.group(2).split('@')[1]
                 break
 
 
-def get_first_index(log_lines, relevant_information):
+def get_first_index(log_lines, relevant_info):
     '''Returns the first index (join) of the user, otherwise None is returned'''
     for line_index, line_str in reversed(list(enumerate(log_lines))):
         join_match = JOIN_REGEX.match(line_str)
-        if join_match and join_match.group(2).split('@')[1] == relevant_information['host']:
+        if join_match and join_match.group(2).split('@')[1] == relevant_info['host']:
             return line_index
 
     return None
 
 
-def extract_macro_info(log_lines, relevant_information):
+def extract_macro_info(log_lines, relevant_info):
     '''Searches for macro information, if available, for example !k, then extracts relevant info'''
-    if 'nick' not in relevant_information:
+    if 'nick' not in relevant_info:
         return  # to detect the correct line
 
     for _, line_str in reversed(list(enumerate(log_lines))):
@@ -386,28 +434,28 @@ def extract_macro_info(log_lines, relevant_information):
         mute_match = MUTE_MACRO_REGEX.match(line_str)
         ban_match = BAN_MACRO_REGEX.match(line_str)
         if (kick_match and
-                kick_match.group(2) == relevant_information['nick']):
-            relevant_information['operator'] = kick_match.group(1)
-            relevant_information['reason'] = kick_match.group(3)
-            return
+                kick_match.group(2) == relevant_info['nick']):
+            relevant_info['operator'] = kick_match.group(1)
+            relevant_info['reason'] = kick_match.group(3)
+            break
         elif (mute_match and
-                mute_match.group(3) == relevant_information['nick'] and
-                relevant_information['result'] == 'Permanent Mute'):
-            relevant_information['operator'] = mute_match.group(1)
+              mute_match.group(3) == relevant_info['nick'] and
+              relevant_info['result'] == 'Permanent Mute'):
+            relevant_info['operator'] = mute_match.group(1)
             if mute_match.group(2):
-                relevant_information['length'] = format_time(mute_match.group(2))
-                relevant_information['result'] = 'Timed Mute'
-            relevant_information['reason'] = mute_match.group(4)
-            return
+                relevant_info['length'] = format_time(mute_match.group(2))
+                relevant_info['result'] = 'Timed Mute'
+            relevant_info['reason'] = mute_match.group(4)
+            break
         elif (ban_match and
-                ban_match.group(3) == relevant_information['nick'] and
-                relevant_information['result'] == 'Permanent Ban'):
-            relevant_information['operator'] = ban_match.group(1)
+              ban_match.group(3) == relevant_info['nick'] and
+              relevant_info['result'] == 'Permanent Ban'):
+            relevant_info['operator'] = ban_match.group(1)
             if ban_match.group(2):
-                relevant_information['length'] = format_time(ban_match.group(2))
-                relevant_information['result'] = 'Timed Ban'
-            relevant_information['reason'] = ban_match.group(4)
-            return
+                relevant_info['length'] = format_time(ban_match.group(2))
+                relevant_info['result'] = 'Timed Ban'
+            relevant_info['reason'] = ban_match.group(4)
+            break
 
 
 def format_time(unformatted_time):
