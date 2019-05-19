@@ -171,7 +171,7 @@ def log(bot, trigger):
         else:  # duplicated, but I'm not comfortable because it's used below too
             relevant_info = get_action_relevant_info(log_lines[action_index])
             deduce_last_nickname_or_hostmask(log_lines[:action_index], relevant_info)
-            if relevant_info['operator'] == 'Casual_Ban_Bot':
+            if is_banner_bot(relevant_info['operator']):
                 backtrack_index = max(0, action_index-APPROPRIATE_BACKTRACK_NUMBER)
                 extract_macro_info(log_lines[backtrack_index:action_index], relevant_info)
     elif args.mode == 'auto':
@@ -187,7 +187,7 @@ def log(bot, trigger):
 
         relevant_info = get_action_relevant_info(log_lines[action_index])
         deduce_last_nickname_or_hostmask(log_lines[:action_index], relevant_info)
-        if relevant_info['operator'] == 'Casual_Ban_Bot':
+        if is_banner_bot(relevant_info['operator']):
             backtrack_index = max(0, action_index-APPROPRIATE_BACKTRACK_NUMBER)
             extract_macro_info(log_lines[backtrack_index:action_index], relevant_info)
 
@@ -217,6 +217,13 @@ def log(bot, trigger):
 
     bot.memory['last_log_information'] = relevant_info
     bot.reply('Here is the log: {} {}'.format(url_content, extra_info))
+
+
+def is_banner_bot(nickname):
+    '''Returns true if the bot can ban people'''
+    return nickname in ('Casual_Ban_Bot',
+                        'NSA',
+                        'ChanServ')
 
 
 ENTRY_INDEXES = {'nick': '1999262323', 'result': '1898835520', 'length': '1118037499',
