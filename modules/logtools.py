@@ -4,12 +4,17 @@
 import shlex
 import argparse
 import time
+import sys
+import os
 import requests
 from apiclient.discovery import build
 from fuzzywuzzy import fuzz
 from sopel import module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
-from banlogger import create_s3_paste, create_snoonet_ghostbin_paste, create_hastebin_paste
+
+# hack for relative import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils import create_s3_paste
 
 class LogToolsSection(StaticSection):
     '''Data class containing the parameters for the module.'''
@@ -38,6 +43,10 @@ def setup(bot):
         build('sheets', 'v4',
               developerKey=bot.config.logtools.google_api_key_password,
               cache_discovery=False)
+    global s3_bucket_name
+
+    s3_bucket_name = bot.config.banlogger.s3_bucket_name
+
     if 'sheet_content_1' in bot.memory:
         del bot.memory['sheet_content_1']
     if 'sheet_content_2' in bot.memory:
@@ -89,7 +98,6 @@ def latest(bot, trigger):
 
     for an_index in range(max(entry_number-3-1, 0), entry_number-1):
         relevant_row = bot.memory['sheet_content_1'][an_index]
-        print(relevant_row)
         if any(relevant_row):
             report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
                                                                                           relevant_row[1],
@@ -165,9 +173,10 @@ def search(bot, trigger):
     sheet_3_instances = []
     for an_index in found_indexes_1:
         relevant_row = bot.memory['sheet_content_1'][an_index]
-        report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
+        report_str = '{} on {} ({}) ({}) in channel {} on {} because "{}" (see {}) (row {})'.format(relevant_row[2],
                                                                                 relevant_row[1],
                                                                                 relevant_row[8],
+                                                                                            relevant_row[3],
                                                                                 relevant_row[6],
                                                                                 relevant_row[0],
                                                                                 relevant_row[7],
@@ -177,9 +186,10 @@ def search(bot, trigger):
 
     for an_index in found_indexes_2:
         relevant_row = bot.memory['sheet_content_2'][an_index]
-        report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {}) (2018 sheet)'.format(relevant_row[2],
+        report_str = '{} on {} ({}) ({}) in channel {} on {} because "{}" (see {}) (row {}) (2018 sheet)'.format(relevant_row[2],
                                                                                             relevant_row[1],
                                                                                             relevant_row[8],
+                                                                                            relevant_row[3],
                                                                                             relevant_row[6],
                                                                                             relevant_row[0],
                                                                                             relevant_row[7],
@@ -189,9 +199,10 @@ def search(bot, trigger):
 
     for an_index in found_indexes_3:
         relevant_row = bot.memory['sheet_content_3'][an_index]
-        report_str = '{} on {} ({}) in channel {} on {} because "{}" (see {}) (row {}) (old sheet)'.format(relevant_row[2],
+        report_str = '{} on {} ({}) ({}) in channel {} on {} because "{}" (see {}) (row {}) (old sheet)'.format(relevant_row[2],
                                                                                             relevant_row[1],
                                                                                             relevant_row[8],
+                                                                                            relevant_row[3],
                                                                                             relevant_row[6],
                                                                                             relevant_row[0],
                                                                                             relevant_row[7],
@@ -203,7 +214,7 @@ def search(bot, trigger):
     instances = sheet_1_instances + sheet_2_instances + sheet_3_instances
 
     if len(instances) > 3:
-        answer_string = '\U0001F914 ' + create_s3_paste('\n'.join(instances))
+        answer_string = '\U0001F914 ' + create_s3_paste(s3_bucket_name, '\n'.join(instances))
         bot.say(answer_string, max_messages=3)
     elif len(instances) == 0:
         bot.say('None found.')
@@ -248,22 +259,5 @@ def helpsearch(bot, trigger):
         return
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',search')
-    url = create_s3_paste(help_content, wanted_title="searchcommandhelp")
+    url = create_s3_paste(s3_bucket_name, help_content, wanted_title="searchcommandhelp")
     bot.reply(url)
-
-
-def create_snoonet_paste(paste_content):
-    '''Creates a ghostpaste and returns the link to it'''
-    paste_url_prefix = 'https://paste.snoonet.org/paste/'
-    post_url = paste_url_prefix+'new'
-
-    data = {'lang': 'Plain Text',
-            'text': paste_content,
-            'expire': -1,
-            'password': None,
-            'title': None}
-
-    # We create a post
-    response = requests.post(post_url, data=data)
-
-    return response.url

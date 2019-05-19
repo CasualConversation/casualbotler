@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 '''Stuff about logging bans and kicks and mutes'''
 
-import shlex
-import re
+import json
 import os
+import re
+import requests
+import shlex
+import sys
 import argparse
 import subprocess
 import urllib
-import datetime
-import json
-import tempfile
-import requests
-import boto3
-import pygments
-from pygments.lexers import IrcLogsLexer
-from pygments.formatters import HtmlFormatter
 from sopel import module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute, FilenameAttribute
 from pyshorteners import Shortener
 
+# hack for relative import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from utils import get_mod_emoji, create_s3_paste
 
 class BanLoggerSection(StaticSection):
     admin_channels = ListAttribute('admin_channels')
@@ -170,7 +169,7 @@ def log(bot, trigger):
     prettified_lines = prettify_lines(log_lines[start_index:end_index])
     relevant_content = '\n'.join(prettified_lines)
     try:
-        url_content = create_s3_paste(relevant_content)
+        url_content = create_s3_paste(s3_bucket_name, relevant_content)
     except json.decoder.JSONDecodeError as e:
         bot.reply('The paste service is down :(')
         raise Exception(e)
@@ -185,40 +184,6 @@ ENTRY_INDEXES = {'nick': '1999262323', 'result': '1898835520', 'length': '111803
                  'operator': '1103903875', 'operator2': '1469630831', 'channel': '729017272',
                  'reason': '956001950', 'host': '400563484', 'log_url': '958498595',
                  'additional_information': 'entry.1480742756'}
-
-def get_mod_emoji(mod_nick):
-    if mod_nick in  ('A_D, A_Dragon'):
-        center = '\U0001F432'
-    elif mod_nick == 'anders':
-        center = '\U0001F34D'
-    elif mod_nick == 'carawayseeds':
-        center = '\U0001F335'
-    elif mod_nick in ('DavidLuizsHair', 'Tapu-Fini'):
-        center = '\U0001F9A1'
-    elif mod_nick == 'diss':
-        center = '\U0001F435'
-    elif mod_nick in ('entropy', 'void', 'unicorn', 'unic0rn23'):
-        center = '\U0001F998'
-    elif mod_nick == 'janesays':
-        center = '\U0001F377'
-    elif mod_nick == 'SolarFlare':
-        center = '\U0001F411'
-    elif mod_nick == 'LeMapleMoose':
-        center = '\U0001F98C'
-    elif mod_nick in ('linuxdaemon', 'pizza', 'linuxinthecloud'):
-        center = '\U0001F43A'
-    elif mod_nick == 'Matthew':
-        center = '\U0001F48A'
-    elif mod_nick == 'owlet':
-        center = '\U0001F989'
-    elif mod_nick == 'timekeeper':
-        center = '\U0001F359'
-    elif mod_nick == 'znuxor':
-        center = '\U0001F916'
-    else:
-        center = '\U0001F60E'
-    return center
-
 
 @module.commands('form')
 def serve_filled_form(bot, trigger):
@@ -252,7 +217,7 @@ def helplog(bot, trigger):
     help_content = parser.format_help()
     help_content = help_content.replace('sopel', ',log')
     try:
-        url = create_s3_paste(help_content, wanted_title="logcommandhelp")
+        url = create_s3_paste(s3_bucket_name, help_content, wanted_title="logcommandhelp")
     except json.decoder.JSONDecodeError as e:
         bot.reply("The paste service is down :(")
         raise Exception(e)
@@ -283,70 +248,6 @@ def prettify_lines(lines):
 
     return new_lines
 
-
-def create_snoonet_ghostbin_paste(paste_content):
-    '''Creates a ghostpaste and returns the link to it'''
-    paste_url_prefix = 'https://paste.snoonet.org/paste/'
-    post_url = paste_url_prefix+'new'
-
-    data = {'lang': 'irc',
-            'text': paste_content,
-            'expire': -1,
-            'password': None,
-            'title': None}
-
-    # We create a post
-    response = requests.post(post_url, data=data)
-
-    return response.url
-
-
-def create_hastebin_paste(paste_content):
-    '''Creates a hastebin paste and returns the link to it'''
-    paste_url_prefix = 'https://hastebin.com/'
-    post_url = paste_url_prefix + 'documents'
-    data = paste_content.encode()
-    response = requests.post(post_url, data=data)
-
-    paste_url = paste_url_prefix + response.json()['key'] + '.log'
-
-    return paste_url
-
-
-def create_s3_paste(paste_content, wanted_title=None):
-    '''Creates a paste and returns the link to the formatted version'''
-    if wanted_title:
-        file_title = wanted_title
-    else:
-        file_title = datetime.datetime.now().replace(microsecond=0).isoformat().replace(':', '').replace('.', '').replace('-', '')+'Z'
-
-    filename_text = file_title + '.txt'
-    filename_formatted = file_title + '.html'
-
-    paste_content_formatted = pygments.highlight(paste_content, IrcLogsLexer(), HtmlFormatter(full=True, style='monokai'))
-
-    filelike_text = tempfile.TemporaryFile()
-    filelike_text.write(paste_content.encode('utf-8'))
-    filelike_text.seek(0)
-
-    filelike_formatted = tempfile.TemporaryFile()
-    filelike_formatted.write(paste_content_formatted.encode('utf-8'))
-    filelike_formatted.seek(0)
-
-    s3client = boto3.client('s3')
-    s3resource = boto3.resource('s3')
-    s3client.upload_fileobj(filelike_text, s3_bucket_name, filename_text)
-    s3client.upload_fileobj(filelike_formatted, s3_bucket_name, filename_formatted)
-
-    # Set the content-type, it cannot be done at upload time it seems...
-    obj_text = s3resource.Object(s3_bucket_name, filename_text)
-    obj_text.copy_from(CopySource={'Bucket': s3_bucket_name, 'Key': filename_text}, MetadataDirective='REPLACE', ContentType='text/plain; charset=utf-8')
-    obj_formatted = s3resource.Object(s3_bucket_name, filename_formatted)
-    obj_formatted.copy_from(CopySource={'Bucket': s3_bucket_name, 'Key': filename_formatted}, MetadataDirective='REPLACE', ContentType='text/html; charset=utf-8')
-
-    # Make the url to return
-    url = 'http://{}/{}'.format(s3_bucket_name, filename_formatted)
-    return url
 
 def read_log_file(bot, channel_name, lines_number):
     '''Reads a log file, returns the lines'''
