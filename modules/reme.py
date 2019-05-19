@@ -5,14 +5,14 @@ A kit of reme-related code
 import datetime
 import pickle
 import random
+from collections import defaultdict
 import sopel.module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
-from collections import Counter, defaultdict
 
 
 PRIV_BIT_MASK = (sopel.module.HALFOP | sopel.module.OP | sopel.module.ADMIN | sopel.module.OWNER)
 
-
+#pylint: disable=too-few-public-methods
 class RemeSection(StaticSection):
     '''A class containing the configuration parameters for the module.'''
     admin_channels = ListAttribute('admin_channels')
@@ -162,5 +162,6 @@ def listsortedids(bot, trigger):
     sid_list = list(int(i[3:]) for i in sid_set)
     sid_list.sort()
     sid_list = [str(i) for i in sid_list]
-    bot.say('registered: ' + ', '.join(sid_list) + '   unregistered: ' + ', '.join(uid_list) + '.', max_messages=3)
-
+    registered_str = 'registered: ' + ', '.join(sid_list)
+    unregistered_str = 'unregistered: ' + ', '.join(uid_list)
+    bot.say(registered_str + ' ' + unregistered_str + '.', max_messages=3)
