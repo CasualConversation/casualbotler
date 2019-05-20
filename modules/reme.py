@@ -14,7 +14,7 @@ from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
 #hack for relative import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from utils import admin_only
+from utils import from_admin_channel_only
 
 PRIV_BIT_MASK = (sopel.module.HALFOP | sopel.module.OP | sopel.module.ADMIN | sopel.module.OWNER)
 
@@ -125,7 +125,7 @@ def smart_ops(bot, message):
 
 
 @sopel.module.commands('clones')
-@admin_only
+@from_admin_channel_only
 def multipleusers(bot, trigger):
     '''Finds users that are joined multiple times'''
     nicks_by_host = defaultdict(set)
@@ -143,7 +143,7 @@ def multipleusers(bot, trigger):
 
 
 @sopel.module.commands('idlist')
-@admin_only
+@from_admin_channel_only
 def listsortedids(bot, trigger):
     '''Serves the list of users who have irccloud-style ids as user'''
     uid_set = set()

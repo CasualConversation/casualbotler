@@ -17,7 +17,7 @@ from pyshorteners import Shortener
 # hack for relative import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from utils import admin_only, get_mod_emoji, create_s3_paste
+from utils import from_admin_channel_only, get_mod_emoji, create_s3_paste
 
 
 class BanLoggerSection(StaticSection):
@@ -138,7 +138,7 @@ APPROPRIATE_BACKTRACK_NUMBER = 8  # The number of lines to analyze before an act
 
 
 @module.commands('log')
-@admin_only
+@from_admin_channel_only
 def log(bot, trigger):
     '''Bot function to log a ban in a given channel, has multiple options.'''
 
@@ -230,7 +230,7 @@ ENTRY_INDEXES = {'nick': '1999262323', 'result': '1898835520', 'length': '111803
 
 
 @module.commands('form')
-@admin_only
+@from_admin_channel_only
 def serve_filled_form(bot, trigger):
     '''Serves a filled form from the memorized information of the last log.'''
     form_url = bot.config.banlogger.base_form_url
@@ -249,7 +249,7 @@ def serve_filled_form(bot, trigger):
 
 
 @module.commands('helplog')
-@admin_only
+@from_admin_channel_only
 def helplog(bot, trigger):
     '''Serves the help information for the command.'''
     help_content = LOG_CMD_PARSER.format_help()

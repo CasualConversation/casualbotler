@@ -13,7 +13,7 @@ from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
 
 # hack for relative import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from utils import admin_only, create_s3_paste
+from utils import from_admin_channel_only, create_s3_paste
 
 
 class LogToolsSection(StaticSection):
@@ -82,7 +82,7 @@ def search_for_indexes(bot, search_term):
 
 
 @module.commands('latest')
-@admin_only
+@from_admin_channel_only
 def latest(bot, trigger):
     '''Returns the latest logged items'''
     if 'sheet_content_2019' not in bot.memory:
@@ -117,7 +117,7 @@ LogEntry = collections.namedtuple("LogEntry", ["timestamp",
 
 
 @module.commands('search')
-@admin_only
+@from_admin_channel_only
 def search(bot, trigger):
     '''Searches for a nick (fuzzy) for a part of a netmask in the spreadsheets.'''
     arguments = trigger.groups()[1]
@@ -262,7 +262,7 @@ def refresh_spreadsheet_content(bot):
 
 
 @module.commands('helpsearch')
-@admin_only
+@from_admin_channel_only
 def helpsearch(bot, trigger):
     '''Serves the help documentation.'''
     help_content = SEARCH_CMD_PARSER.format_help()

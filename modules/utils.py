@@ -26,7 +26,7 @@ MOD_EMOJIS = defaultdict(lambda __:'\U0001F60E', {'A_D': '\U0001F432',
                                                   'znuxor': '\U0001F916'})
 
 
-def admin_only(func):
+def from_admin_channel_only(func):
     '''Only calls the decorated function if called from an administration channel.'''
     sig = inspect.signature(func)
     def decorator(*args, **kwargs):
