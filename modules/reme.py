@@ -126,12 +126,14 @@ def smart_ops(bot, message):
 
 @sopel.module.commands('clones')
 @from_admin_channel_only
-def multipleusers(bot, _):
+def multipleusers(bot, trigger):
     '''Finds users that are joined multiple times'''
     nicks_by_host = defaultdict(set)
     for a_channel in bot.config.reme.allowed_channels:
         for user_nick in bot.privileges[a_channel]:
             user_obj = bot.users[user_nick]
+            if user_obj.host is None:
+                continue
             user_host = user_obj.host
             is_privileged = bot.privileges[a_channel][user_nick] & PRIV_BIT_MASK
             is_network_admin = 'snoonet/' in user_host.lower()
@@ -144,7 +146,7 @@ def multipleusers(bot, _):
 
 @sopel.module.commands('idlist')
 @from_admin_channel_only
-def listsortedids(bot, _):
+def listsortedids(bot, trigger):
     '''Serves the list of users who have irccloud-style ids as user'''
     uid_set = set()
     sid_set = set()

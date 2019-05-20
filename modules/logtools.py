@@ -84,7 +84,7 @@ def search_for_indexes(bot, search_term):
 
 @module.commands('latest')
 @from_admin_channel_only
-def latest(bot, _):
+def latest(bot, trigger):
     '''Returns the latest logged items'''
     if bot.config.logtools.relevant_sheets[0] not in bot.memory:
         refresh_spreadsheet_content(bot)
@@ -217,7 +217,7 @@ def refresh_spreadsheet_content(bot):
 
 @module.commands('helpsearch')
 @from_admin_channel_only
-def helpsearch(bot, _):
+def helpsearch(bot, trigger):
     '''Serves the help documentation.'''
     help_content = SEARCH_CMD_PARSER.format_help()
     help_content = help_content.replace('sopel', ',search')
