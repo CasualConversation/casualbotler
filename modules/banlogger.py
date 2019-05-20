@@ -17,7 +17,7 @@ from pyshorteners import Shortener
 # hack for relative import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from utils import get_mod_emoji, create_s3_paste
+from utils import admin_only, get_mod_emoji, create_s3_paste
 
 
 class BanLoggerSection(StaticSection):
@@ -138,14 +138,11 @@ APPROPRIATE_BACKTRACK_NUMBER = 8  # The number of lines to analyze before an act
 
 
 @module.commands('log')
+@admin_only
 def log(bot, trigger):
     '''Bot function to log a ban in a given channel, has multiple options.'''
 
     extra_info = ''
-
-    is_admin_channel = (trigger.sender in bot.config.banlogger.admin_channels)
-    if not is_admin_channel:
-        return
 
     arguments = trigger.groups()[1]
     if arguments is None:
@@ -216,7 +213,7 @@ def log(bot, trigger):
     relevant_info['channel'] = CHANNEL_FOR_LOG[args.chan]
 
     bot.memory['last_log_information'] = relevant_info
-    bot.reply('Here is the log: {} {}'.format(url_content, extra_info))
+    bot.reply('Logged here: {} {}'.format(url_content, extra_info))
 
 
 def is_banner_bot(nickname):
@@ -233,33 +230,28 @@ ENTRY_INDEXES = {'nick': '1999262323', 'result': '1898835520', 'length': '111803
 
 
 @module.commands('form')
+@admin_only
 def serve_filled_form(bot, trigger):
     '''Serves a filled form from the memorized information of the last log.'''
-    is_admin_channel = (trigger.sender in bot.config.banlogger.admin_channels)
-    if not is_admin_channel:
-        return
-
-    url = bot.config.banlogger.base_form_url
+    form_url = bot.config.banlogger.base_form_url
     for info_type, info_value in bot.memory['last_log_information'].items():
         if info_value is not None:
-            url += '&entry.{}={}'.format(ENTRY_INDEXES[info_type],
+            form_url += '&entry.{}={}'.format(ENTRY_INDEXES[info_type],
                                          urllib.parse.quote_plus(info_value))
-    center = get_mod_emoji(trigger.nick)
+    center_emoji = get_mod_emoji(trigger.nick)
 
     try:
-        shortened_url = URL_SHORTENER.short(url)
+        shortened_url = URL_SHORTENER.short(form_url)
     except requests.exceptions.ReadTimeout:
         bot.reply('TinyURL connection timeout.')
     else:
-        bot.reply('\U0001F449'+center+'\U0001F449 ' + shortened_url)
+        bot.reply('\U0001F449'+center_emoji+'\U0001F449 ' + shortened_url)
 
 
 @module.commands('helplog')
+@admin_only
 def helplog(bot, trigger):
     '''Serves the help information for the command.'''
-    is_admin_channel = (trigger.sender in bot.config.banlogger.admin_channels)
-    if not is_admin_channel:
-        return
     help_content = LOG_CMD_PARSER.format_help()
     help_content = help_content.replace('sopel', ',log')
     try:
@@ -275,8 +267,8 @@ def helplog(bot, trigger):
 def prettify_lines(lines):
     '''Reformats parts of the log to make them more human-readable'''
     # remove the host on regular messages
-    lines_filtered_1 = []
-    lines_filtered_2 = []
+    lines_reordered_fields = []
+    lines_compact_time = []
     for line in lines:
         message_match = MSG_REGEX.match(line)
         if message_match:
@@ -284,15 +276,15 @@ def prettify_lines(lines):
             nick_str = message_match.group(1)
             new_nick_str = '<' + nick_str + '>'
             better_line = line.replace(host_str, '', 1).replace(nick_str, new_nick_str, 1)
-            lines_filtered_1.append(better_line)
+            lines_reordered_fields.append(better_line)
         else:
-            lines_filtered_1.append(line)
+            lines_reordered_fields.append(line)
 
     # reformat the timestamp a bit (remove the T, remove the timezone part)
-    for line in lines_filtered_1:
-        lines_filtered_2.append(line[0:10]+' '+line[11:19]+line[25:len(line)])
+    for line in lines_reordered_fields:
+        lines_compact_time.append(line[0:10]+' '+line[11:19]+line[25:len(line)])
 
-    new_lines = lines_filtered_2
+    new_lines = lines_compact_time
 
     return new_lines
 
@@ -313,7 +305,7 @@ VPN_MESSAGE_PART = 'You must register your nickname to use a VPN connection on t
 
 
 def get_action_line_index(log_lines, action_number_to_skip):
-    '''Gets the index of the relevant action'''
+    '''Gets the index of the action done by a mod'''
 
     index_to_return = None
 

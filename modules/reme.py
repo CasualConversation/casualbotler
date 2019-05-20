@@ -3,16 +3,22 @@
 A kit of reme-related code
 """
 import datetime
+import os
 import pickle
 import random
+import sys
 from collections import defaultdict
 import sopel.module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
 
+#hack for relative import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from utils import admin_only
 
 PRIV_BIT_MASK = (sopel.module.HALFOP | sopel.module.OP | sopel.module.ADMIN | sopel.module.OWNER)
 
-#pylint: disable=too-few-public-methods
+
 class RemeSection(StaticSection):
     '''A class containing the configuration parameters for the module.'''
     admin_channels = ListAttribute('admin_channels')
@@ -119,12 +125,9 @@ def smart_ops(bot, message):
 
 
 @sopel.module.commands('clones')
+@admin_only
 def multipleusers(bot, trigger):
     '''Finds users that are joined multiple times'''
-    is_admin_channel = (trigger.sender in bot.config.logtools.admin_channels)
-    if not is_admin_channel:
-        return
-
     nicks_by_host = defaultdict(set)
     for a_channel in bot.config.reme.allowed_channels:
         for user_nick in bot.privileges[a_channel]:
@@ -140,12 +143,9 @@ def multipleusers(bot, trigger):
 
 
 @sopel.module.commands('idlist')
+@admin_only
 def listsortedids(bot, trigger):
     '''Serves the list of users who have irccloud-style ids as user'''
-    is_admin_channel = (trigger.sender in bot.config.logtools.admin_channels)
-    if not is_admin_channel:
-        return
-
     uid_set = set()
     sid_set = set()
     for a_channel in bot.config.reme.allowed_channels:

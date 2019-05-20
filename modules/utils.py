@@ -3,6 +3,7 @@
 They do not depend on the bot framework.'''
 
 import datetime
+import inspect
 import tempfile
 from collections import defaultdict
 import pygments
@@ -23,6 +24,18 @@ MOD_EMOJIS = defaultdict(lambda __:'\U0001F60E', {'A_D': '\U0001F432',
                                                   'owlet': '\U0001F989',
                                                   'timekeeper': '\U0001F359',
                                                   'znuxor': '\U0001F916'})
+
+
+def admin_only(func):
+    '''Only calls the decorated function if called from an administration channel.'''
+    sig = inspect.signature(func)
+    def decorator(*args, **kwargs):
+        bound_args = sig.bind(*args, **kwargs)
+        sender = bound_args.arguments['trigger'].sender
+        admin_channels = bound_args.arguments['bot'].config.banlogger.admin_channels
+        if sender in admin_channels:
+            func(*args, **kwargs)
+    return decorator
 
 
 def get_mod_emoji(mod_nick):
