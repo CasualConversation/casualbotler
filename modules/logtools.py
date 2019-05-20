@@ -6,6 +6,7 @@ import shlex
 import argparse
 import sys
 import os
+from copy import copy
 from apiclient.discovery import build
 from fuzzywuzzy import fuzz
 from sopel import module
@@ -24,6 +25,8 @@ class LogToolsSection(StaticSection):
     spreadsheet_id = ValidatedAttribute('spreadsheet_id')
     relevant_sheets = ListAttribute('relevant_sheets')
     relevant_range = ValidatedAttribute('relevant_range')
+    sheet_fields = ListAttribute('sheet_fields')
+    line_report_format = ValidatedAttribute('line_report_format', str)
 
 
 def configure(config):
@@ -38,6 +41,8 @@ SEARCH_CMD_PARSER.add_argument('terms',
                                help='the nick or piece of mask to search')
 SEARCH_CMD_PARSER.add_argument('-c', '--convert', action='store_true')
 
+LOGENTRY = None
+LINE_REPORT_FORMAT = None
 
 def setup(bot):
     '''Invoked when the module is loaded.'''
@@ -50,6 +55,13 @@ def setup(bot):
     for sheet_name in bot.config.logtools.relevant_sheets:
         if sheet_name in bot.memory:
             del bot.memory[sheet_name]
+
+    sheet_fields_with_index = copy(bot.config.logtools.sheet_fields)
+    sheet_fields_with_index.append("index")
+    global LOGENTRY
+    LOGENTRY = collections.namedtuple("LOGENTRY", sheet_fields_with_index)
+    global LINE_REPORT_FORMAT
+    LINE_REPORT_FORMAT = bot.config.logtools.line_report_format
 
 
 ACCEPTABLE_RATIO = 75
@@ -89,20 +101,6 @@ def latest(bot, _):
             sheet_1_instances.append(report_str)
     for an_instance in sheet_1_instances:
         bot.say('\u25A0 ' + an_instance, max_messages=2)
-
-
-LogEntry = collections.namedtuple("LogEntry", ["timestamp",
-                                               "username",
-                                               "result",
-                                               "length",
-                                               "op",
-                                               "second_op",
-                                               "channel",
-                                               "reason",
-                                               "host",
-                                               "log",
-                                               "additional_info",
-                                               "index"])
 
 
 @module.commands('search')
@@ -154,7 +152,7 @@ def search(bot, trigger):
         for index, content in enumerate(term_indexes_by_sheet):
             indexes_by_sheet[index].extend(content)
 
-    for i in range(len(indexes_by_sheet)):
+    for i, _ in enumerate(indexes_by_sheet):
         indexes_by_sheet[i] = list(sorted(set(indexes_by_sheet[i])))
 
     instances_per_sheet = []
@@ -186,18 +184,8 @@ def search(bot, trigger):
 
 def create_entry_from_row(spreadsheet_row, row_index):
     '''Creates a namedtuple for a row as an indirection layer.'''
-    log_entry = LogEntry(timestamp=spreadsheet_row[0],
-                         username=spreadsheet_row[1],
-                         result=spreadsheet_row[2],
-                         length=spreadsheet_row[3],
-                         op=spreadsheet_row[4],
-                         second_op=spreadsheet_row[5],
-                         channel=spreadsheet_row[6],
-                         reason=spreadsheet_row[7],
-                         host=spreadsheet_row[8],
-                         log=spreadsheet_row[9],
-                         additional_info=spreadsheet_row[10],
-                         index=row_index+2)  # 0-index to 1-index, and top row
+    elems_number = len(LOGENTRY._fields)-1
+    log_entry = LOGENTRY(*(spreadsheet_row[:elems_number]), index=row_index+2)
     return log_entry
 
 
@@ -206,12 +194,7 @@ def format_spreadsheet_line(entry, sheet_name):
     report_str = '{} on {} ({}) '.format(entry.result, entry.username, entry.host)
     if entry.length:
         report_str += '(duration: {}) '.format(entry.length)
-    report_str += 'in channel {} on {} because "{}" (see {}) (row {}) ({})'.format(entry.channel,
-                                                                                   entry.timestamp,
-                                                                                   entry.reason,
-                                                                                   entry.log,
-                                                                                   entry.index,
-                                                                                   sheet_name)
+    report_str += LINE_REPORT_FORMAT.format(entry=entry, sheet_name=sheet_name)
     return report_str
 
 
