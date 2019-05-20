@@ -47,53 +47,41 @@ def setup(bot):
               developerKey=bot.config.logtools.google_api_key_password,
               cache_discovery=False)
 
-    if 'sheet_content_2019' in bot.memory:
-        del bot.memory['sheet_content_2019']
-    if 'sheet_content_2018' in bot.memory:
-        del bot.memory['sheet_content_2018']
-    if 'sheet_content_old' in bot.memory:
-        del bot.memory['sheet_content_old']
-
+    for sheet_name in bot.config.logtools.relevant_sheets:
+        if sheet_name in bot.memory:
+            del bot.memory[sheet_name]
 
 ACCEPTABLE_RATIO = 75
 
 
 def search_for_indexes(bot, search_term):
     '''Searches the data in the sheets, returns the indexes.'''
-    found_indexes_1 = []
-    found_indexes_2 = []
-    found_indexes_3 = []
+    found_indexes = []
 
-    for index, line in enumerate(bot.memory['sheet_content_2019']):
-        if line and (search_term in line[8] or fuzz.ratio(search_term.lower(),
-                                                          line[1].lower()) >= ACCEPTABLE_RATIO):
-            found_indexes_1.append(index)
+    for sheet in bot.config.logtools.relevant_sheets:
+        index_list = []
+        for index, line in enumerate(bot.memory[sheet]):
+            if line and (search_term in line[8] or fuzz.ratio(search_term.lower(),
+                                                              line[1].lower()) >= ACCEPTABLE_RATIO):
+                index_list.append(index)
+        found_indexes.append(index_list)
 
-    for index, line in enumerate(bot.memory['sheet_content_2018']):
-        if line and (search_term in line[8] or fuzz.ratio(search_term.lower(),
-                                                          line[1].lower()) >= ACCEPTABLE_RATIO):
-            found_indexes_2.append(index)
-
-    for index, line in enumerate(bot.memory['sheet_content_old']):
-        if line and (search_term in line[8] or fuzz.ratio(search_term.lower(),
-                                                          line[1].lower()) >= ACCEPTABLE_RATIO):
-            found_indexes_3.append(index)
-    return found_indexes_1, found_indexes_2, found_indexes_3
+    return found_indexes
 
 
 @module.commands('latest')
 @from_admin_channel_only
 def latest(bot, trigger):
     '''Returns the latest logged items'''
-    if 'sheet_content_2019' not in bot.memory:
+    if bot.config.logtools.relevant_sheets[0] not in bot.memory:
         refresh_spreadsheet_content(bot)
 
-    entry_number = len(bot.memory['sheet_content_2019'])
+    entry_number = len(bot.memory[bot.config.logtools.relevant_sheets[0]])
 
     sheet_1_instances = []
 
     for an_index in range(max(entry_number-3-1, 0), entry_number-1):
-        relevant_row = bot.memory['sheet_content_2019'][an_index]
+        relevant_row = bot.memory[bot.config.logtools.relevant_sheets[0]][an_index]
         if any(relevant_row):
             current_entry = create_entry_from_row(relevant_row, an_index)
             report_str = format_spreadsheet_line(current_entry, '2019')
@@ -151,58 +139,50 @@ def search(bot, trigger):
     else:
         search_terms = args.terms
 
-    if 'sheet_content_2019' not in bot.memory:
+    if bot.config.logtools.relevant_sheets[0] not in bot.memory:
         refresh_spreadsheet_content(bot)
 
-    found_indexes_2019 = []
-    found_indexes_2018 = []
-    found_indexes_old = []
+    indexes_by_sheet = []
+    for _ in bot.config.logtools.relevant_sheets:
+        indexes_by_sheet.append([])
 
     for a_term in search_terms:
         if a_term is None:
             continue
-        s2019_temp, s2018_temp, sold_temp = search_for_indexes(bot, a_term)
-        found_indexes_2019.extend(s2019_temp)
-        found_indexes_2018.extend(s2018_temp)
-        found_indexes_old.extend(sold_temp)
+        term_indexes_by_sheet= search_for_indexes(bot, a_term)
+        for index, content in enumerate(term_indexes_by_sheet):
+            indexes_by_sheet[index].extend(content)
 
-    found_indexes_2019 = list(sorted(set(found_indexes_2019)))
-    found_indexes_2018 = list(sorted(set(found_indexes_2018)))
-    found_indexes_old = list(sorted(set(found_indexes_old)))
+    for i in range(len(indexes_by_sheet)):
+        indexes_by_sheet[i] = list(sorted(set(indexes_by_sheet[i])))
 
-    sheet_1_instances = []
-    sheet_2_instances = []
-    sheet_3_instances = []
-    for an_index in found_indexes_2019:
-        relevant_row = bot.memory['sheet_content_2019'][an_index]
-        current_entry = create_entry_from_row(relevant_row, an_index)
-        report_str = format_spreadsheet_line(current_entry, '2019')
-        sheet_1_instances.append(report_str)
 
-    for an_index in found_indexes_2018:
-        relevant_row = bot.memory['sheet_content_2018'][an_index]
-        current_entry = create_entry_from_row(relevant_row, an_index)
-        report_str = format_spreadsheet_line(current_entry, '2018')
-        sheet_2_instances.append(report_str)
+    instances_per_sheet = []
+    for i, sheet in enumerate(bot.config.logtools.relevant_sheets):
+        sheet_found_indexes = indexes_by_sheet[i]
+        curr_sheet_instances = []
+        for match_index in sheet_found_indexes:
+            relevant_row = bot.memory[sheet][match_index]
+            current_entry = create_entry_from_row(relevant_row, match_index)
+            report_str = format_spreadsheet_line(current_entry, sheet)
+            curr_sheet_instances.append(report_str)
+        instances_per_sheet.append(curr_sheet_instances)
 
-    for an_index in found_indexes_old:
-        relevant_row = bot.memory['sheet_content_old'][an_index]
-        current_entry = create_entry_from_row(relevant_row, an_index)
-        report_str = format_spreadsheet_line(current_entry, 'old')
-        sheet_3_instances.append(report_str)
 
-    instances = sheet_1_instances + sheet_2_instances + sheet_3_instances
+    instances = []
+    for instance_list in instances_per_sheet:
+        instances.extend(instance_list)
 
     if len(instances) > 3:
-        answer_string = '\U0001F914 ' + create_s3_paste(bot.config.banlogger.s3_bucket_name,
-                                                        '\n'.join(instances))
-        bot.say(answer_string, max_messages=3)
+        answer = '\U0001F914 ' + create_s3_paste(bot.config.banlogger.s3_bucket_name,
+                                                 '\n'.join(instances))
+        bot.say(answer, max_messages=3)
     elif not instances:
         bot.say('None found.')
     else:
         for an_instance in instances:
-            answer_string = '\u25A0 ' + an_instance
-            bot.say(answer_string, max_messages=2)
+            answer = '\u25A0 ' + an_instance
+            bot.say(answer, max_messages=2)
 
 
 def create_entry_from_row(spreadsheet_row, row_index):
@@ -236,29 +216,21 @@ def format_spreadsheet_line(entry, sheet_name):
     return report_str
 
 
-RELEVANT_SHEETS = ('Operator Actions 2019', 'Operator Actions 2018', 'Pre-2018 Data')
 RELEVANT_RANGE = 'a2:l'
 
 
-@module.interval(300)
+@module.interval(60)
 def refresh_spreadsheet_content(bot):
     '''Periodically refreshes the spreadsheet content.
     This is done this way to limits calls to the API.'''
 
     values_obj = bot.memory['google_sheets_service'].spreadsheets().values()
+    spreadsheetId = bot.config.logtools.spreadsheet_id
 
-    range_1 = RELEVANT_SHEETS[0]+'!'+RELEVANT_RANGE
-    range_2 = RELEVANT_SHEETS[1]+'!'+RELEVANT_RANGE
-    range_3 = RELEVANT_SHEETS[2]+'!'+RELEVANT_RANGE
-    bot.memory['sheet_content_2019'] = \
-        values_obj.get(spreadsheetId=bot.config.logtools.spreadsheet_id,
-                       range=range_1).execute().get('values', [])
-    bot.memory['sheet_content_2018'] = \
-        values_obj.get(spreadsheetId=bot.config.logtools.spreadsheet_id,
-                       range=range_2).execute().get('values', [])
-    bot.memory['sheet_content_old'] = \
-        values_obj.get(spreadsheetId=bot.config.logtools.spreadsheet_id,
-                       range=range_3).execute().get('values', [])
+    for sheet in bot.config.logtools.relevant_sheets:
+        curr_range = sheet+'!'+RELEVANT_RANGE
+        bot.memory[sheet] = values_obj.get(spreadsheetId=spreadsheetId,
+                                           range=curr_range).execute().get('values', [])
 
 
 @module.commands('helpsearch')
