@@ -237,7 +237,7 @@ def serve_filled_form(bot, trigger):
     for info_type, info_value in bot.memory['last_log_information'].items():
         if info_value is not None:
             form_url += '&entry.{}={}'.format(ENTRY_INDEXES[info_type],
-                                         urllib.parse.quote_plus(info_value))
+                                              urllib.parse.quote_plus(info_value))
     center_emoji = get_mod_emoji(trigger.nick)
 
     try:

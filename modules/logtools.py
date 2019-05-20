@@ -51,6 +51,7 @@ def setup(bot):
         if sheet_name in bot.memory:
             del bot.memory[sheet_name]
 
+
 ACCEPTABLE_RATIO = 75
 
 
@@ -71,7 +72,7 @@ def search_for_indexes(bot, search_term):
 
 @module.commands('latest')
 @from_admin_channel_only
-def latest(bot, trigger):
+def latest(bot, _):
     '''Returns the latest logged items'''
     if bot.config.logtools.relevant_sheets[0] not in bot.memory:
         refresh_spreadsheet_content(bot)
@@ -149,13 +150,12 @@ def search(bot, trigger):
     for a_term in search_terms:
         if a_term is None:
             continue
-        term_indexes_by_sheet= search_for_indexes(bot, a_term)
+        term_indexes_by_sheet = search_for_indexes(bot, a_term)
         for index, content in enumerate(term_indexes_by_sheet):
             indexes_by_sheet[index].extend(content)
 
     for i in range(len(indexes_by_sheet)):
         indexes_by_sheet[i] = list(sorted(set(indexes_by_sheet[i])))
-
 
     instances_per_sheet = []
     for i, sheet in enumerate(bot.config.logtools.relevant_sheets):
@@ -167,7 +167,6 @@ def search(bot, trigger):
             report_str = format_spreadsheet_line(current_entry, sheet)
             curr_sheet_instances.append(report_str)
         instances_per_sheet.append(curr_sheet_instances)
-
 
     instances = []
     for instance_list in instances_per_sheet:
@@ -225,17 +224,17 @@ def refresh_spreadsheet_content(bot):
     This is done this way to limits calls to the API.'''
 
     values_obj = bot.memory['google_sheets_service'].spreadsheets().values()
-    spreadsheetId = bot.config.logtools.spreadsheet_id
+    spreadsheet_id = bot.config.logtools.spreadsheet_id
 
     for sheet in bot.config.logtools.relevant_sheets:
         curr_range = sheet+'!'+RELEVANT_RANGE
-        bot.memory[sheet] = values_obj.get(spreadsheetId=spreadsheetId,
+        bot.memory[sheet] = values_obj.get(spreadsheetId=spreadsheet_id,
                                            range=curr_range).execute().get('values', [])
 
 
 @module.commands('helpsearch')
 @from_admin_channel_only
-def helpsearch(bot, trigger):
+def helpsearch(bot, _):
     '''Serves the help documentation.'''
     help_content = SEARCH_CMD_PARSER.format_help()
     help_content = help_content.replace('sopel', ',search')

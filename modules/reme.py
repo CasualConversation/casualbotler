@@ -11,7 +11,7 @@ from collections import defaultdict
 import sopel.module
 from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
 
-#hack for relative import
+# hack for relative import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils import from_admin_channel_only
@@ -126,7 +126,7 @@ def smart_ops(bot, message):
 
 @sopel.module.commands('clones')
 @from_admin_channel_only
-def multipleusers(bot, trigger):
+def multipleusers(bot, _):
     '''Finds users that are joined multiple times'''
     nicks_by_host = defaultdict(set)
     for a_channel in bot.config.reme.allowed_channels:
@@ -144,7 +144,7 @@ def multipleusers(bot, trigger):
 
 @sopel.module.commands('idlist')
 @from_admin_channel_only
-def listsortedids(bot, trigger):
+def listsortedids(bot, _):
     '''Serves the list of users who have irccloud-style ids as user'''
     uid_set = set()
     sid_set = set()
