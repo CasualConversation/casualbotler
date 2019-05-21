@@ -9,7 +9,7 @@ import random
 import sys
 from collections import defaultdict
 import sopel.module
-from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute
+from sopel.config.types import StaticSection, ListAttribute, ValidatedAttribute, FilenameAttribute
 
 # hack for relative import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -27,6 +27,7 @@ class RemeSection(StaticSection):
     minimum_time_seconds = ValidatedAttribute('minimum_time_seconds', int, default=7200)
     minimum_line_number = ValidatedAttribute('minimum_line_number', int, default=30)
     sass_list = ListAttribute('sass_list')
+    db_path = FilenameAttribute('db_path')
 
 
 def configure(config):
@@ -41,7 +42,7 @@ def setup(bot):
     '''Invoked when the module is loaded.'''
     bot.config.define_section('reme', RemeSection, validate=True)
     try:
-        with open('reme.pickle', 'rb') as file_handle:
+        with open(bot.config.reme.db_path, 'rb') as file_handle:
             bot.memory['ops_cmd_users'] = pickle.load(file_handle)
     except FileNotFoundError:
         bot.memory['ops_cmd_users'] = dict()
@@ -53,7 +54,12 @@ def setup(bot):
 @sopel.module.interval(1200)
 def save_to_file(bot):
     '''Saves the data as backup in a file'''
-    with open('reme.pickle', 'wb') as file_handle:
+    db_path = bot.config.reme.db_path
+    db_dir = os.path.dirname(db_path)
+    if not os.path.exists(db_dir):
+        os.makedirs(db_dir)
+
+    with open(db_path, 'wb') as file_handle:
         pickle.dump(bot.memory['ops_cmd_users'], file_handle)
 
 
