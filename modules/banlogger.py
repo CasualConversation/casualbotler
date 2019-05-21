@@ -24,7 +24,6 @@ class BanLoggerSection(StaticSection):
     '''Defines the section of the configuration for this module.'''
     admin_channels = ListAttribute('admin_channels')
     loggable_channels = ListAttribute('loggable_channels')
-    log_dir_path = FilenameAttribute('log_dir_path', directory=True)
     base_form_url = ValidatedAttribute('base_form_url')
     s3_bucket_name = ValidatedAttribute('s3_bucket_name')
 
@@ -292,7 +291,7 @@ def prettify_lines(lines):
 def read_log_file(bot, channel_name, lines_number):
     '''Reads a log file, returns the lines'''
     fixed_chan_name = channel_name.lstrip('#')
-    filepath = os.path.join(bot.config.banlogger.log_dir_path, '{}.log'.format(fixed_chan_name))
+    filepath = os.path.join(bot.config.chanlogs.dir, '{}.log'.format(fixed_chan_name))
     cmd = ('tail', '-n', '{}'.format(lines_number), filepath)
     output = None
     output = subprocess.check_output(list(cmd))
