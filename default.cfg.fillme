@@ -1,18 +1,20 @@
 [core]
 nick = CasualBotler
+user = bleepbloop
 name = bleepbloop
 auth_method = nickserv
 auth_password = 
 host = irc.snoonet.org
 use_ssl = true
 port = 6697
-owner = znuxor
-admins = 
+owner = *@YOUR_HOST_HERE
+admins = *@ADMIN_HOST_1,*@ADMIN_HOST_2
 channels = #casualconversation,#talk,#casualappeals,#casualnsfw
-enable = banlogger,reload,chanlogs,admin,reme,logtools
+enable = utils,banlogger,reload,chanlogs,admin,reme,logtools
 prefix = ,
 reply_errors = false
 log_raw = false
+logdir = /var/lib/casualbotler
 
 [admin]
 hold_ground = true
@@ -24,25 +26,29 @@ time_format = %Y-%m-%d %T
 
 [chanlogs]
 by_day = False
-dir = logs/chanlogs
+dir = /var/lib/casualbotler/logs/chanlogs
 
 [logtools]
 google_api_key_password = 
 admin_channels = 
 acceptable_fuzz_ratio = 75
 spreadsheet_id = 
-relevant_sheets = Operator Actions,Pre 2018 Data
+relevant_sheets = 
 relevant_range = a2:k
+sheet_fields = your,comma,separated,fields,here,for,the,line,report,format
+line_report_format = "{entry.your} {entry.here}..."
 
 [banlogger]
 admin_channels = 
 loggable_channels = 
-log_dir_path = logs/chanlogs
 base_form_url = 
+s3_bucket_name = your.s3.bucket.url
 
 [reme]
+admin_channels =
 allowed_channels = 
 days_before_forgotten = 14
 minimum_time_seconds = 7200
 minimum_line_number = 30
 sass_list = fat chance., pls, no >:(, I'm not sure about that., How about no?, I'd like to help you, but I forgot how.
+db_path = /var/lib/casualbotler/reme.pickle
