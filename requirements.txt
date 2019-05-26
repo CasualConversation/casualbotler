@@ -8,3 +8,5 @@ oauth2client
 python-Levenshtein
 boto3
 Pygments
+pytest-cov
+pytest
