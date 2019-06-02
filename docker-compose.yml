@@ -1,0 +1,10 @@
+version: '3'
+services:
+    casualbotler:
+        build:
+            context: ./
+            dockerfile: ./Dockerfile
+        volumes:
+            - casualbotler-data:/var/lib/casualbotler
+volumes:
+    casualbotler-data:
