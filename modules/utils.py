@@ -39,11 +39,6 @@ def from_admin_channel_only(func):
     return decorator
 
 
-def get_mod_emoji(mod_nick):
-    '''Returns the best emoji for a given mod nickname.'''
-    return MOD_EMOJIS[mod_nick]
-
-
 def create_s3_paste(s3_bucket_name, paste_content, wanted_title=None):
     '''Creates a paste and returns the link to the formatted version'''
     if wanted_title:

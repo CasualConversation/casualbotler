@@ -17,7 +17,7 @@ from pyshorteners import Shortener
 # hack for relative import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from utils import from_admin_channel_only, get_mod_emoji, create_s3_paste
+from utils import from_admin_channel_only, create_s3_paste
 
 
 class BanLoggerSection(StaticSection):
@@ -237,7 +237,7 @@ def serve_filled_form(bot, trigger):
         if info_value is not None:
             form_url += '&entry.{}={}'.format(ENTRY_INDEXES[info_type],
                                               urllib.parse.quote_plus(info_value))
-    center_emoji = get_mod_emoji(trigger.nick)
+    center_emoji = ';)'
 
     try:
         shortened_url = URL_SHORTENER.short(form_url)
